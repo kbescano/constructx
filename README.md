@@ -13,11 +13,16 @@ data.
 
 - **Admin dashboard** (`/admin-dashboard`) — quotation inbox, client
   quotations, orders, supplier POs, deliveries, reports, sales report
-- **No login wall** — the bare domain root and `/admin-dashboard` both
-  auto-sign the visitor in as the seeded demo admin (see `/api/demo-auth`),
-  so sharing the plain link is enough. The real `/admin-login` form still
-  works as a manual fallback (e.g. to sign in as a sales-staff account
-  instead, to see that role's narrower view).
+- **Role picker instead of a password wall** — the bare domain root (`/`)
+  *is* the role picker: three cards (Sales Staff / Admin / Marketing &
+  Logistics). Picking one signs the visitor in as that role's seeded
+  account (see `/api/demo-auth`) and drops them straight onto the view
+  that role actually sees — no password typing. Any protected page with no
+  session redirects here too. The sidebar's **Switch Role** link and
+  **Logout** both point back at `/`, so switching roles any time is just
+  "click it, pick a different card" — no forced sign-out step. A manual
+  email/password form is still available underneath the cards, for signing
+  into one specific account by name.
 - **Payload CMS** — the data layer (products, clients, suppliers, users) at `/admin`
 - **Onboarding tips** — small dismissible bubbles on the first few screens
   (search, cards, nav, "create inquiry") that explain what each thing does.
@@ -41,16 +46,16 @@ data.
    npx tsx seed-categories.ts   # product categories (Bolts & Fasteners, Steel Plates, etc.)
    npx tsx scripts/seed.ts      # staff accounts, products, clients, suppliers, pipeline data
    ```
-5. Visit `localhost:3000` — you're auto-signed-in as the demo admin
-   (`admin@constructx.demo` / `Demo1234!`) and land on the dashboard. To see
-   the narrower sales-staff view instead, go to `/admin-login` and sign in
-   as `juan@constructx.demo` / `Demo1234!` (or `maria@constructx.demo`).
+5. Visit `localhost:3000` — you'll land on the role picker. Pick **Sales
+   Staff**, **Admin**, or **Marketing & Logistics** to explore the dashboard
+   exactly as that role sees it.
 
 **Before sharing the link publicly:** change the seeded passwords, or set
-`DEMO_LOGIN_EMAIL` / `DEMO_LOGIN_PASSWORD` in `.env` to point auto-login at
-a different account entirely. Re-run `npx tsx scripts/seed.ts` any time you
-want to reset the demo back to its starting state — it's safe to re-run, it
-skips whatever already exists.
+`DEMO_LOGIN_EMAIL_SALES` / `DEMO_LOGIN_EMAIL_ADMIN` / `DEMO_LOGIN_EMAIL_MARKETING`
+/ `DEMO_LOGIN_PASSWORD` in `.env` to point each role card at different
+accounts entirely. Re-run `npx tsx scripts/seed.ts` any time you want to
+reset the demo back to its starting state — it's safe to re-run, it skips
+whatever already exists and fills in anything missing.
 
 ## Notes for whoever's presenting this demo
 

@@ -5,11 +5,6 @@ import StaffPerformanceClient from "@/components/StaffPerformanceClient";
 
 export const dynamic = "force-dynamic"; 
 
-function currentMonthValue(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-}
-
 function getGranularityRange(
   granularity?: string,
   periodValue?: string,
@@ -68,14 +63,14 @@ export default async function StaffPerformancePage({
   }
 
   if (!granularity) {
-    granularity = "month";
-    periodValue = currentMonthValue();
+    // Demo default -- show everything the seed script created rather than
+    // hiding it behind "this month" until someone manually picks "All Time".
+    granularity = "all";
   }
-  const effectiveGranularity = granularity ?? "month";
-  const effectivePeriodValue = periodValue ?? currentMonthValue();
+  const effectiveGranularity = granularity ?? "all";
   const { start, end } = getGranularityRange(
     effectiveGranularity,
-    effectivePeriodValue,
+    periodValue,
   );
 
   // Fetch static lookups
@@ -194,7 +189,7 @@ const staffList = staffRes.docs as any[];
       initialStaff={initialStaff}
       initialStatus={initialStatus}
       granularity={effectiveGranularity}
-      periodValue={effectivePeriodValue}
+      periodValue={periodValue || ""}
       staffList={staffList}
       products={products}
       requests={displayRequests}

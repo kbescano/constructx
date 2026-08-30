@@ -11,11 +11,10 @@ export default async function AdminDashboardLayout({ children }: { children: Rea
   const headers = await getHeaders()
   const { user } = await payload.auth({ headers })
   if (!user) {
-    // Demo build -- no login wall. Auto-sign-in as the seeded demo admin
-    // instead of sending visitors to a credentials form (see
-    // /api/demo-auth). Falls back to the real login form on its own if
-    // that account doesn't exist yet.
-    redirect('/api/demo-auth?redirect=/admin-dashboard')
+    // Demo build -- no password-entry login wall, but visitors still pick
+    // which role to explore as (Sales / Admin / Marketing & Logistics) on
+    // the root role picker before /api/demo-auth signs them in as that role.
+    redirect('/?redirect=/admin-dashboard')
   }
 
   return (

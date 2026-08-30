@@ -14,11 +14,6 @@ import QuotationInboxClient from "@/components/QuotationInboxClient";
 // catalog.
 const FETCH_LIMIT = 1000;
 
-function currentMonthValue(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-}
-
 // Fixed "this week" (Mon-Sun) / "this month" windows for the small overview
 // panel -- independent of whatever date range the granularity filter is
 // currently set to, since the overview is meant to always answer "how am I
@@ -150,8 +145,9 @@ export default async function QuotationInboxPage({
   let { granularity, periodValue } = await searchParams;
 
   if (!granularity) {
-    granularity = "month";
-    periodValue = currentMonthValue();
+    // Demo default -- show everything the seed script created rather than
+    // hiding it behind "this month" until someone manually picks "All Time".
+    granularity = "all";
   }
 
   const { start, end } = getGranularityRange(granularity, periodValue);

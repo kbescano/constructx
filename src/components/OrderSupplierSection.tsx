@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import AssignSuppliersModal from '@/components/AssignSuppliersModal'
 import MergeSuppliersModal from '@/components/MergeSuppliersModal'
 import CollectionStatusSelect from '@/components/CollectionStatusSelect'
+import OnboardingTip from '@/components/onboarding/OnboardingTip'
 
 type OrderItem = {
   description: string
@@ -122,16 +123,18 @@ export default function OrderSupplierSection({
                 Merge into One Supplier
               </button>
             )}
-            <button
-              onClick={handleButtonClick}
-              className="w-full sm:w-auto text-[10px] font-medium px-3 py-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-full transition-colors duration-200"
-            >
-              {linkedPOs.length === 0
-                ? '+ Create Supplier PO'
-                : hasUnassigned
-                ? '+ Add Another Supplier'
-                : 'Manage Suppliers'}
-            </button>
+            <OnboardingTip id="order-supplier-assign" text="Assign each line item to a supplier here — pick an existing PO or create a new one. An order can be split across several suppliers." side="left">
+              <button
+                onClick={handleButtonClick}
+                className="w-full sm:w-auto text-[10px] font-medium px-3 py-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-full transition-colors duration-200"
+              >
+                {linkedPOs.length === 0
+                  ? '+ Create Supplier PO'
+                  : hasUnassigned
+                  ? '+ Add Another Supplier'
+                  : 'Manage Suppliers'}
+              </button>
+            </OnboardingTip>
           </div>
         )}
       </div>

@@ -176,11 +176,18 @@ function RequestCardBody({
   isAdmin,
   staffOptions,
   currentUserName,
+  showControlTips = false,
 }: {
   q: any
   isAdmin: boolean
   staffOptions: StaffOption[]
   currentUserName: string
+  /** Show onboarding tips on this card's controls (Status, Assign Staff,
+   * View Order Workflow). Only pass true for a single, deliberately-shown
+   * instance (the open-request modal, or the first card in a list) --
+   * every card in a list sharing the same instance would stack duplicate
+   * bubbles down the page. */
+  showControlTips?: boolean
 }) {
   return (
     <>
@@ -206,7 +213,23 @@ function RequestCardBody({
                 staffOptions={staffOptions}
               />
             )}
-            <StatusSelect id={q.id} status={q.status} />
+            {showControlTips ? (
+              // A single tip covering both controls in this cluster (rather
+              // than one per control) -- Assign Staff and Status sit right
+              // next to each other, so two separate bubbles here would
+              // overlap each other no matter which side they open on.
+              <OnboardingTip
+                id="inbox-status-select"
+                text={isAdmin
+                  ? "Assign staff and change status here as you work the request — status moves it through Pending → Processing → Quote Sent, etc."
+                  : "Change the status here as you work the request — moves it through Pending → Processing → Quote Sent, etc."}
+                side="left"
+              >
+                <StatusSelect id={q.id} status={q.status} />
+              </OnboardingTip>
+            ) : (
+              <StatusSelect id={q.id} status={q.status} />
+            )}
           </div>
         </div>
       </div>
@@ -229,13 +252,25 @@ function RequestCardBody({
         <span className="text-gray-500">
           Stage: <span className="text-emerald-600 font-medium">{q.stageLabel}</span>
         </span>
-        <Link
-          href={`/admin-dashboard/pipeline/${q.id}`}
-          onClick={(e) => e.stopPropagation()}
-          className="text-[10px] font-medium text-gray-500 hover:text-[#050505] transition-colors"
-        >
-          View Order Workflow →
-        </Link>
+        {showControlTips ? (
+          <OnboardingTip id="inbox-view-workflow" text="Opens the full 6-step pipeline for this request — create a quotation, get it approved, assign suppliers, and track delivery through to close." side="bottom">
+            <Link
+              href={`/admin-dashboard/pipeline/${q.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="text-[10px] font-medium text-gray-500 hover:text-[#050505] transition-colors"
+            >
+              View Order Workflow →
+            </Link>
+          </OnboardingTip>
+        ) : (
+          <Link
+            href={`/admin-dashboard/pipeline/${q.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="text-[10px] font-medium text-gray-500 hover:text-[#050505] transition-colors"
+          >
+            View Order Workflow →
+          </Link>
+        )}
       </div>
 
       {/* Items & Message Grid */}
@@ -585,6 +620,7 @@ export default function QuotationInboxClient({
                   isAdmin={isAdmin}
                   staffOptions={staffOptions}
                   currentUserName={currentUserName}
+                  showControlTips={index === 0}
                 />
               </div>
             )
@@ -627,6 +663,7 @@ export default function QuotationInboxClient({
               isAdmin={isAdmin}
               staffOptions={staffOptions}
               currentUserName={currentUserName}
+              showControlTips
             />
           </div>
         </div>

@@ -5,6 +5,7 @@ import OrderOpexSection from "@/components/OrderOpexSection";
 import QuotationPrintPreview from "@/components/pipeline/QuotationPrintPreview";
 import { TabSection, SummaryRow, EmptyStep, InstantSelect, FinancialSummary } from "@/components/pipeline/PipelineSharedUI";
 import { quotationTotal, peso, FULFILLMENT_OPTIONS, FULFILLMENT_COLORS, PAYMENT_OPTIONS, PAYMENT_COLORS } from "@/lib/pipelineUtils";
+import OnboardingTip from "@/components/onboarding/OnboardingTip";
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -30,7 +31,13 @@ export function StepQuotation({ quotation, localOrder, request }: any) {
           )}
         </div>
       ) : (
-        <EmptyStep text="No quotation created yet for this request." ctaLabel="Create Client Quotation" href={`/admin-dashboard/client-quotation?from=${request.id}&pipelineId=${request.id}`} />
+        <EmptyStep
+          text="No quotation created yet for this request."
+          ctaLabel="Create Client Quotation"
+          href={`/admin-dashboard/client-quotation?from=${request.id}&pipelineId=${request.id}`}
+          tipId="pipeline-step1-create-quotation"
+          tipText="Turns this inquiry into a priced, client-ready quotation — line items, pricing, and terms."
+        />
       )}
     </TabSection>
   );
@@ -105,12 +112,14 @@ export function StepConfirmation({ quotation, isQuotationApprovedOrBeyond, handl
                 <p className="text-[12px] font-medium text-gray-900 leading-relaxed">
                   <strong className="text-[#1877F2] mr-1">Approved!</strong> The admin has accepted this quotation. You can now print the formal document and proceed to confirm the internal order.
                 </p>
-                <Link
-                  href={`/admin-dashboard/client-quotation?id=${quotation.id}&pipelineId=${request.id}`}
-                  className="inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all text-[10px] font-medium w-full sm:w-auto mt-1 shadow-sm"
-                >
-                  Open Quotation to Print &rarr;
-                </Link>
+                <OnboardingTip id="pipeline-open-quotation-print" text="Opens the formal, client-ready quotation document — print it or save as PDF to send.">
+                  <Link
+                    href={`/admin-dashboard/client-quotation?id=${quotation.id}&pipelineId=${request.id}`}
+                    className="inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all text-[10px] font-medium w-full sm:w-auto mt-1 shadow-sm"
+                  >
+                    Open Quotation to Print &rarr;
+                  </Link>
+                </OnboardingTip>
               </div>
             ) : (
               <div className="flex flex-col items-start gap-3.5">
@@ -122,24 +131,28 @@ export function StepConfirmation({ quotation, isQuotationApprovedOrBeyond, handl
                       : "Draft stage. Complete the quotation details and send for internal approval."}
                 </p>
                 {quotation.status === "draft" && (
-                  <Link
-                    href={`/admin-dashboard/client-quotation?id=${quotation.id}&pipelineId=${request.id}`}
-                    className="inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all text-[10px] font-medium w-full sm:w-auto shadow-sm"
-                  >
-                    Send for Internal Approval &rarr;
-                  </Link>
+                  <OnboardingTip id="pipeline-send-for-approval" text="Opens the quotation editor — finish the pricing there, then send it for internal review before it goes to the client.">
+                    <Link
+                      href={`/admin-dashboard/client-quotation?id=${quotation.id}&pipelineId=${request.id}`}
+                      className="inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all text-[10px] font-medium w-full sm:w-auto shadow-sm"
+                    >
+                      Send for Internal Approval &rarr;
+                    </Link>
+                  </OnboardingTip>
                 )}
               </div>
             )}
           </div>
           {isQuotationApprovedOrBeyond && (
             <div className="border-t border-gray-100 pt-4 mt-2 flex justify-start">
-              <button
-                onClick={() => setConfirmSendOpen(true)}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-[#1d1d1f] text-white hover:bg-gray-800 transition-all text-[10px] font-medium shadow-sm"
-              >
-                Next Step: Confirm Order & Create PO &rarr;
-              </button>
+              <OnboardingTip id="pipeline-step2-next" text="Confirms the quotation turned into a real order and unlocks Step 3, where you assign items to suppliers.">
+                <button
+                  onClick={() => setConfirmSendOpen(true)}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-[#1d1d1f] text-white hover:bg-gray-800 transition-all text-[10px] font-medium shadow-sm"
+                >
+                  Next Step: Confirm Order & Create PO &rarr;
+                </button>
+              </OnboardingTip>
             </div>
           )}
         </div>
@@ -184,7 +197,7 @@ export function StepSupplierPO({ quotation, localOrder, isQuotationApprovedOrBey
               <p className="text-[11px] text-gray-500 font-medium mb-1">Internal Order Status</p>
               <p className="text-[12px] text-gray-900 font-medium">Set to Confirmed to generate the order and unlock POs.</p>
             </div>
-            <div className="relative w-full sm:w-auto">
+            <OnboardingTip id="pipeline-confirm-order" text="Switching this to Confirmed generates the actual order from this quotation and unlocks supplier assignment below." side="left" wrapperClassName="w-full sm:w-auto">
               {isCreatingOrder || quotation?.status === "order_confirmed" ? (
                 <span className="inline-block w-full sm:w-[160px] text-center px-4 py-1.5 text-[10px] font-medium bg-[#1877F2]/10 text-[#1877F2] rounded-xl">
                   Generating Order...
@@ -208,7 +221,7 @@ export function StepSupplierPO({ quotation, localOrder, isQuotationApprovedOrBey
                   </div>
                 </div>
               )}
-            </div>
+            </OnboardingTip>
           </div>
 
           <div className="py-8 text-center bg-[#fbfbfd] rounded-2xl border border-dashed border-gray-200 px-5">
@@ -267,12 +280,14 @@ export function StepSupplierPO({ quotation, localOrder, isQuotationApprovedOrBey
           <div className="border-t border-gray-100 pt-5 mt-5 flex flex-col-reverse lg:flex-row gap-5 justify-between items-start">
             <div className="w-full lg:w-auto flex-1 flex justify-start">
               {linkedPOs.length > 0 && isFullyAssigned && (
-                <button
-                  onClick={() => handleTabChange("fulfilled")}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-[#1d1d1f] text-white hover:bg-gray-800 transition-all text-[10px] font-medium shadow-sm"
-                >
-                  Next Step: Order Fulfilled &rarr;
-                </button>
+                <OnboardingTip id="pipeline-step3-next" text="Every item is now assigned to a supplier PO. Move on once the supplier actually delivers to you.">
+                  <button
+                    onClick={() => handleTabChange("fulfilled")}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-[#1d1d1f] text-white hover:bg-gray-800 transition-all text-[10px] font-medium shadow-sm"
+                  >
+                    Next Step: Order Fulfilled &rarr;
+                  </button>
+                </OnboardingTip>
               )}
             </div>
             <FinancialSummary localOrder={localOrder} />
@@ -663,12 +678,14 @@ export function StepFulfilled({ localOrder, linkedPOs, handleUpdateOrderField, h
                 Saving Updates...
               </div>
             ) : receiptsComplete ? (
-              <button
-                onClick={() => handleTabChange("delivery")}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-[#1d1d1f] text-white hover:bg-gray-800 transition-all text-[12px] font-medium shadow-sm"
-              >
-                Next Step: Track Delivery & Payment &rarr;
-              </button>
+              <OnboardingTip id="pipeline-step4-next" text="Both payment receipts are in. Move on to schedule the actual delivery route and track final payment.">
+                <button
+                  onClick={() => handleTabChange("delivery")}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-[#1d1d1f] text-white hover:bg-gray-800 transition-all text-[12px] font-medium shadow-sm"
+                >
+                  Next Step: Track Delivery & Payment &rarr;
+                </button>
+              </OnboardingTip>
             ) : (
               <div className="text-[9px] text-amber-600 bg-amber-50 px-3 py-2 rounded-lg border border-amber-100/50 leading-snug">
                 <span className="font-semibold uppercase tracking-wide">⚠️ Action Required to Proceed:</span><br/>
@@ -772,12 +789,14 @@ export function StepDelivery({ localOrder, linkedPOs, handleUpdateOrderField, ha
                 Saving Status...
               </div>
             ) : canProceedToClose ? (
-              <button
-                onClick={() => handleTabChange("closed")}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-[#1d1d1f] text-white hover:bg-gray-800 transition-all text-[10px] font-medium shadow-sm"
-              >
-                Next Step: Confirm Completed &rarr;
-              </button>
+              <OnboardingTip id="pipeline-step5-next" text="Delivered and paid in full — this order is ready to close out.">
+                <button
+                  onClick={() => handleTabChange("closed")}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-[#1d1d1f] text-white hover:bg-gray-800 transition-all text-[10px] font-medium shadow-sm"
+                >
+                  Next Step: Confirm Completed &rarr;
+                </button>
+              </OnboardingTip>
             ) : (
               <div className="text-[9px] text-amber-600 bg-amber-50 px-3 py-2 rounded-lg border border-amber-100/50 leading-snug">
                 <span className="font-semibold uppercase tracking-wide">⚠️ Action Required to Proceed:</span><br/>
@@ -823,21 +842,23 @@ export function StepClosed({ localOrder, quotation, request, linkedPOs }: any) {
             </p>
           </div>
           {request.status !== "completed" && (
-            <button
-               onClick={async () => {
-                 try {
-                   await fetch(`/api/quotation-requests/${request.id}`, {
-                     method: 'PATCH',
-                     headers: { 'Content-Type': 'application/json' },
-                     body: JSON.stringify({ status: 'completed' })
-                   });
-                   window.location.reload();
-                 } catch (e) { console.error(e) }
-               }}
-               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-1.5 bg-[#1877F2] text-white hover:bg-[#0A4FB0] transition-colors rounded-full text-[10px] font-semibold tracking-wide uppercase shadow-sm"
-            >
-              Close Pipeline
-            </button>
+            <OnboardingTip id="pipeline-step6-close" text="The last click — marks the original inquiry itself Completed, closing the loop end to end." side="left">
+              <button
+                 onClick={async () => {
+                   try {
+                     await fetch(`/api/quotation-requests/${request.id}`, {
+                       method: 'PATCH',
+                       headers: { 'Content-Type': 'application/json' },
+                       body: JSON.stringify({ status: 'completed' })
+                     });
+                     window.location.reload();
+                   } catch (e) { console.error(e) }
+                 }}
+                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-1.5 bg-[#1877F2] text-white hover:bg-[#0A4FB0] transition-colors rounded-full text-[10px] font-semibold tracking-wide uppercase shadow-sm"
+              >
+                Close Pipeline
+              </button>
+            </OnboardingTip>
           )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 md:p-5 bg-white rounded-3xl border border-gray-200/60 shadow-sm">

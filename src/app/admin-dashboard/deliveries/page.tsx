@@ -16,10 +16,13 @@ export default async function DeliveriesPage({
   const reqHeaders = await headers();
   const { user } = await payload.auth({ headers: reqHeaders });
 
-  if (!user) redirect("/admin-login");
+  if (!user) redirect("/?redirect=/admin-dashboard/deliveries");
 
   // 1. Determine Filtering
-  const filterStatus = activeStatus || "active";
+  // Demo default -- show every order (not just active ones) rather than
+  // hiding the seeded delivered/cancelled orders until someone manually
+  // clicks "All Orders".
+  const filterStatus = activeStatus || "all";
   let where: any = undefined;
 
   if (filterStatus === "active") {

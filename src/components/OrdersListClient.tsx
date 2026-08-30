@@ -11,6 +11,7 @@ import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import OrderOpexSection from '@/components/OrderOpexSection'
 import ReceiptsPreview from '@/components/ReceiptsPreview'
+import OnboardingTip from '@/components/onboarding/OnboardingTip'
 
 const FULFILLMENT_STAGES = ['preparing', 'shipped', 'delivered'] as const
 
@@ -147,7 +148,7 @@ function MinimalStepper({ status }: { status: string }) {
 // Shared between the list card and the detail modal. "View Source
 // Quotation" still goes to the Client Quotation page's ?id= (its full
 // editor mode, unrelated to that page's own ?view= modal param).
-function OrderCardBody({ o, orderPOs }: { o: any; orderPOs: any[] }) {
+function OrderCardBody({ o, orderPOs, showControlTips = false }: { o: any; orderPOs: any[]; showControlTips?: boolean }) {
   const total = orderTotal(o)
   const orderItems = o.items || []
 
@@ -428,12 +429,23 @@ function OrderCardBody({ o, orderPOs }: { o: any; orderPOs: any[] }) {
       {/* Subtle Link footer */}
       {o.sourceQuotationId && (
         <div className="mt-5 pt-3 flex justify-end" onClick={(e) => e.stopPropagation()}>
-          <Link
-            href={`/admin-dashboard/client-quotation?id=${o.sourceQuotationId}`}
-            className="text-[9px] font-bold uppercase tracking-wider text-blue-600 hover:text-blue-800 transition-colors"
-          >
-            View Source Quotation &rarr;
-          </Link>
+          {showControlTips ? (
+            <OnboardingTip id="orders-view-source-quotation" text="Jumps back to the priced quotation this order was converted from." side="left">
+              <Link
+                href={`/admin-dashboard/client-quotation?id=${o.sourceQuotationId}`}
+                className="text-[9px] font-bold uppercase tracking-wider text-blue-600 hover:text-blue-800 transition-colors"
+              >
+                View Source Quotation &rarr;
+              </Link>
+            </OnboardingTip>
+          ) : (
+            <Link
+              href={`/admin-dashboard/client-quotation?id=${o.sourceQuotationId}`}
+              className="text-[9px] font-bold uppercase tracking-wider text-blue-600 hover:text-blue-800 transition-colors"
+            >
+              View Source Quotation &rarr;
+            </Link>
+          )}
         </div>
       )}
     </>
@@ -585,7 +597,7 @@ export default function OrdersListClient({
         </div>
       ) : (
         <div className="flex flex-col gap-5">
-          {filtered.map((o: any) => {
+          {filtered.map((o: any, index: number) => {
             const isHighlighted = openId && String(o.id) === openId
             return (
               <div
@@ -595,7 +607,7 @@ export default function OrdersListClient({
                   isHighlighted ? 'border-[#1877F2] shadow-[0_8px_30px_-12px_rgba(20,153,17,0.25)]' : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
                 }`}
               >
-                <OrderCardBody o={o} orderPOs={posByOrderId[String(o.id)] || []} />
+                <OrderCardBody o={o} orderPOs={posByOrderId[String(o.id)] || []} showControlTips={index === 0} />
               </div>
             )
           })}
@@ -621,7 +633,7 @@ export default function OrdersListClient({
                 ✕
               </button>
             </div>
-            <OrderCardBody o={openOrderDoc} orderPOs={posByOrderId[String(openOrderDoc.id)] || []} />
+            <OrderCardBody o={openOrderDoc} orderPOs={posByOrderId[String(openOrderDoc.id)] || []} showControlTips />
           </div>
         </div>
       )}

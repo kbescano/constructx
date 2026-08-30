@@ -112,18 +112,22 @@ async function seed() {
   const staffMaria = await upsertUser(payload, { email: 'maria@constructx.demo', password: 'Demo1234!', name: 'Maria Santos', role: 'user' })
 
   console.log('2/7 Product catalog...')
-  const productIds: Record<string, string> = {}
+  // Kept as the raw ID type Payload/Postgres actually uses (a number), not
+  // stringified -- these feed straight into `material`, a relationship
+  // field on quotation-requests.items below, which rejects a string where
+  // it expects the product's real ID type.
+  const productIds: Record<string, string | number> = {}
   for (const p of PRODUCTS) {
     const existing = await payload.find({ collection: 'products', where: { name: { equals: p.name } }, limit: 1 })
     if (existing.docs.length > 0) {
-      productIds[p.name] = String(existing.docs[0].id)
+      productIds[p.name] = existing.docs[0].id
       continue
     }
     const created = await payload.create({
       collection: 'products',
       data: { ...p, inStock: true, featured: p.featured ?? false },
     })
-    productIds[p.name] = String(created.id)
+    productIds[p.name] = created.id
   }
   console.log(`  ${Object.keys(productIds).length} products ready`)
 
@@ -135,7 +139,6 @@ async function seed() {
 
   console.log('5/7 Quotation requests (pipeline inbox)...')
   const existingRFQs = await payload.find({ collection: 'quotation-requests', limit: 1 })
-  const rfqs: any[] = []
   if (existingRFQs.totalDocs > 0) {
     console.log('  skip (quotation-requests already seeded)')
   } else {
@@ -149,120 +152,149 @@ async function seed() {
       { customerName: 'Precious Domingo', phone: '0917-234-5607', email: 'precious@domingobuilders.ph', projectType: 'renovation', source: 'facebook', status: 'completed', assignedTo: staffJuan.id, items: [{ material: productIds['Safety Helmet (Hard Hat)'], quantity: 30 }, { material: productIds['Safety Shoes Steel Toe'], quantity: 30 }], message: 'PPE restock for the crew.' },
       { customerName: 'Edgardo Mercado', phone: '0917-234-5608', email: 'edgardo@mercadodev.ph', projectType: 'commercial', source: 'marketPlace', status: 'rejected', assignedTo: staffMaria.id, items: [{ material: productIds['Stainless Sheet 304 1.2mm'], quantity: 25 }], message: 'Went with another supplier on lead time.' },
     ]
+    let createdCount = 0
     for (const r of rfqSeeds) {
       const { items, ...rest } = r as any
-      const created = await payload.create({
+      await payload.create({
         collection: 'quotation-requests',
         data: { ...rest, items: items.map((i: any) => ({ material: i.material, quantity: i.quantity })) },
       })
-      rfqs.push(created)
+      createdCount++
     }
-    console.log(`  created ${rfqs.length} quotation requests`)
+    console.log(`  created ${createdCount} quotation requests`)
+  }
+
+  // Always read back from the DB rather than relying on what this run
+  // itself created -- on a re-run, step 5 above skips entirely (RFQs
+  // already exist), so an in-memory list built only from new creates would
+  // be empty and every sourceRequestId below would end up blank.
+  const allRfqs = (await payload.find({ collection: 'quotation-requests', limit: 50 })).docs as any[]
+  const rfqByName = (name: string) => allRfqs.find((r) => r.customerName === name)
+
+  // Creates one client-quotation if none exists yet for this RFQ (matched
+  // by sourceRequestId, not "did this whole collection get seeded before"),
+  // then walks it through `progressTo` in order. This is what lets a
+  // re-run fill in a quote added later (e.g. Precious Domingo's) without
+  // needing the database wiped first.
+  async function ensureQuotation(customerName: string, data: Record<string, any>, progressTo: string[] = []) {
+    const rfqId = String(rfqByName(customerName)?.id || '')
+    if (rfqId) {
+      const existing = await payload.find({ collection: 'client-quotations', where: { sourceRequestId: { equals: rfqId } }, limit: 1 })
+      if (existing.docs.length > 0) return existing.docs[0] as any
+    }
+    const created = await payload.create({ collection: 'client-quotations', data: { ...data, customerName, sourceRequestId: rfqId } })
+    let doc = created
+    for (const status of progressTo) {
+      doc = await payload.update({ collection: 'client-quotations', id: created.id, data: { status } })
+    }
+    return doc
   }
 
   console.log('6/7 Client quotations (some converting to orders)...')
-  const existingQuotes = await payload.find({ collection: 'client-quotations', limit: 1 })
-  if (existingQuotes.totalDocs > 0) {
-    console.log('  skip (client-quotations already seeded)')
-  } else {
-    const rfqByName = (name: string) => rfqs.find((r) => r.customerName === name)
 
-    // Draft -- still being put together
-    await payload.create({
-      collection: 'client-quotations',
-      data: {
-        quotationDate: daysAgo(2),
-        customerName: 'Bianca Uy', company: 'Uy Industrial Supply', address: 'MacArthur Hwy, San Fernando, Pampanga', contactNumber: '0917-234-5604',
-        salesPerson: 'Maria Santos',
-        sourceRequestId: String(rfqByName('Bianca Uy')?.id || ''),
-        items: [
-          { qty: 80, unit: 'length', description: 'GI Pipe 3" Sch 40', unitCost: 620, marginAmount: 130, unitPrice: 750 },
-          { qty: 40, unit: 'sqm', description: 'GI Sheet 0.6mm Plain', unitCost: 410, marginAmount: 90, unitPrice: 500 },
-        ],
-        status: 'draft',
-      },
+  // Draft -- still being put together
+  await ensureQuotation('Bianca Uy', {
+    quotationDate: daysAgo(2),
+    company: 'Uy Industrial Supply', address: 'MacArthur Hwy, San Fernando, Pampanga', contactNumber: '0917-234-5604',
+    salesPerson: 'Maria Santos',
+    items: [
+      { qty: 80, unit: 'length', description: 'GI Pipe 3" Sch 40', unitCost: 620, marginAmount: 130, unitPrice: 750 },
+      { qty: 40, unit: 'sqm', description: 'GI Sheet 0.6mm Plain', unitCost: 410, marginAmount: 90, unitPrice: 500 },
+    ],
+    status: 'draft',
+  })
+
+  // Pending approval
+  await ensureQuotation('Nathaniel Ong', {
+    quotationDate: daysAgo(5),
+    company: 'Ong Trading', address: 'Quirino Hwy, Novaliches, QC', contactNumber: '0917-234-5606',
+    salesPerson: 'Maria Santos',
+    items: [
+      { qty: 300, unit: 'length', description: 'Deformed Bar 20mm x 6m (Grade 40)', unitCost: 980, marginAmount: 170, unitPrice: 1150 },
+      { qty: 60, unit: 'length', description: 'Round Bar 25mm x 6m', unitCost: 1450, marginAmount: 250, unitPrice: 1700 },
+    ],
+    status: 'pending_approval',
+  })
+
+  // Approved, not yet converted
+  await ensureQuotation('Ferdie Alcantara', {
+    quotationDate: daysAgo(9),
+    company: 'Alcantara Realty & Builders', address: 'National Hwy, Sta. Rosa, Laguna', contactNumber: '0917-234-5605',
+    salesPerson: 'Juan Dela Cruz',
+    items: [
+      { qty: 6, unit: 'set', description: 'Chain Link Fence 6ft x 50m (Gauge 12)', unitCost: 8200, marginAmount: 1300, unitPrice: 9500 },
+    ],
+    status: 'quotation_approved',
+  })
+
+  // Order Confirmed #1 -- will fully progress through fulfillment below
+  await ensureQuotation('Ramon Villareal', {
+    quotationDate: daysAgo(38),
+    company: 'Villareal Construction & Development', address: 'Km 14 Sumulong Hwy, Antipolo City', contactNumber: '0917-234-5601',
+    salesPerson: 'Juan Dela Cruz',
+    items: [
+      { qty: 12, unit: 'piece', description: 'W-Beam 200mm x 100mm x 6m', unitCost: 9800, marginAmount: 1700, unitPrice: 11500 },
+      { qty: 200, unit: 'piece', description: 'Hex Bolt 12mm x 100mm (Grade 8.8)', unitCost: 38, marginAmount: 12, unitPrice: 50 },
+    ],
+    deliveryFee: 3500,
+    status: 'draft',
+  }, ['pending_approval', 'quotation_approved', 'order_confirmed'])
+
+  // Order Confirmed #2 -- will progress partway (shipped, partial payment)
+  await ensureQuotation('Grace Tolentino', {
+    quotationDate: daysAgo(12),
+    company: 'GT Builders Corp.', address: 'Ortigas Ave Ext, Cainta, Rizal', contactNumber: '0917-234-5602',
+    salesPerson: 'Maria Santos',
+    items: [
+      { qty: 150, unit: 'length', description: 'Deformed Bar 16mm x 6m (Grade 40)', unitCost: 720, marginAmount: 130, unitPrice: 850 },
+    ],
+    deliveryFee: 2000,
+    status: 'draft',
+  }, ['pending_approval', 'quotation_approved', 'order_confirmed'])
+
+  // Order Confirmed #3 -- will fully progress through fulfillment below,
+  // same as #1. Backs up the "Completed" RFQ (Precious Domingo) with an
+  // actual quotation/order/PO/delivery trail instead of leaving that
+  // status with nothing behind it.
+  await ensureQuotation('Precious Domingo', {
+    quotationDate: daysAgo(20),
+    company: 'Domingo Builders', address: 'Marcos Hwy, Marikina City', contactNumber: '0917-234-5607',
+    salesPerson: 'Juan Dela Cruz',
+    items: [
+      { qty: 30, unit: 'piece', description: 'Safety Helmet (Hard Hat)', unitCost: 180, marginAmount: 70, unitPrice: 250 },
+      { qty: 30, unit: 'piece', description: 'Safety Shoes Steel Toe', unitCost: 850, marginAmount: 300, unitPrice: 1150 },
+    ],
+    deliveryFee: 800,
+    status: 'draft',
+  }, ['pending_approval', 'quotation_approved', 'order_confirmed'])
+
+  console.log('  client quotations ready (3 converted to orders)')
+
+  // Links every item on an order to a supplier PO by setting `assignedPOId`
+  // (a plain text field storing the PO's id) -- this is what the pipeline
+  // detail view's Step 3 "fully assigned" check and every later step's
+  // gating actually reads (see admin-dashboard/pipeline/[id]/page.tsx's
+  // `allItemsAssigned`). Creating the PO document alone, without this, left
+  // Step 3 looking incomplete even on orders marked delivered+paid --
+  // exactly the state a real user could never reach through the UI itself.
+  async function assignAllItemsToPO(orderId: string | number, poId: string | number) {
+    const current = await payload.findByID({ collection: 'orders', id: orderId })
+    const items = Array.isArray((current as any).items) ? (current as any).items : []
+    await payload.update({
+      collection: 'orders',
+      id: orderId,
+      data: { items: items.map((item: any) => ({ ...item, assignedPOId: String(poId) })) },
     })
-
-    // Pending approval
-    await payload.create({
-      collection: 'client-quotations',
-      data: {
-        quotationDate: daysAgo(5),
-        customerName: 'Nathaniel Ong', company: 'Ong Trading', address: 'Quirino Hwy, Novaliches, QC', contactNumber: '0917-234-5606',
-        salesPerson: 'Maria Santos',
-        sourceRequestId: String(rfqByName('Nathaniel Ong')?.id || ''),
-        items: [
-          { qty: 300, unit: 'length', description: 'Deformed Bar 20mm x 6m (Grade 40)', unitCost: 980, marginAmount: 170, unitPrice: 1150 },
-          { qty: 60, unit: 'length', description: 'Round Bar 25mm x 6m', unitCost: 1450, marginAmount: 250, unitPrice: 1700 },
-        ],
-        status: 'pending_approval',
-      },
-    })
-
-    // Approved, not yet converted
-    await payload.create({
-      collection: 'client-quotations',
-      data: {
-        quotationDate: daysAgo(9),
-        customerName: 'Ferdie Alcantara', company: 'Alcantara Realty & Builders', address: 'National Hwy, Sta. Rosa, Laguna', contactNumber: '0917-234-5605',
-        salesPerson: 'Juan Dela Cruz',
-        sourceRequestId: String(rfqByName('Ferdie Alcantara')?.id || ''),
-        items: [
-          { qty: 6, unit: 'set', description: 'Chain Link Fence 6ft x 50m (Gauge 12)', unitCost: 8200, marginAmount: 1300, unitPrice: 9500 },
-        ],
-        status: 'quotation_approved',
-      },
-    })
-
-    // Order Confirmed #1 -- will fully progress through fulfillment below
-    const quote1 = await payload.create({
-      collection: 'client-quotations',
-      data: {
-        quotationDate: daysAgo(38),
-        customerName: 'Ramon Villareal', company: 'Villareal Construction & Development', address: 'Km 14 Sumulong Hwy, Antipolo City', contactNumber: '0917-234-5601',
-        salesPerson: 'Juan Dela Cruz',
-        sourceRequestId: String(rfqByName('Ramon Villareal')?.id || ''),
-        items: [
-          { qty: 12, unit: 'piece', description: 'W-Beam 200mm x 100mm x 6m', unitCost: 9800, marginAmount: 1700, unitPrice: 11500 },
-          { qty: 200, unit: 'piece', description: 'Hex Bolt 12mm x 100mm (Grade 8.8)', unitCost: 38, marginAmount: 12, unitPrice: 50 },
-        ],
-        deliveryFee: 3500,
-        status: 'draft',
-      },
-    })
-    await payload.update({ collection: 'client-quotations', id: quote1.id, data: { status: 'pending_approval' } })
-    await payload.update({ collection: 'client-quotations', id: quote1.id, data: { status: 'quotation_approved' } })
-    await payload.update({ collection: 'client-quotations', id: quote1.id, data: { status: 'order_confirmed' } })
-
-    // Order Confirmed #2 -- will progress partway (shipped, partial payment)
-    const quote2 = await payload.create({
-      collection: 'client-quotations',
-      data: {
-        quotationDate: daysAgo(12),
-        customerName: 'Grace Tolentino', company: 'GT Builders Corp.', address: 'Ortigas Ave Ext, Cainta, Rizal', contactNumber: '0917-234-5602',
-        salesPerson: 'Maria Santos',
-        sourceRequestId: String(rfqByName('Grace Tolentino')?.id || ''),
-        items: [
-          { qty: 150, unit: 'length', description: 'Deformed Bar 16mm x 6m (Grade 40)', unitCost: 720, marginAmount: 130, unitPrice: 850 },
-        ],
-        deliveryFee: 2000,
-        status: 'draft',
-      },
-    })
-    await payload.update({ collection: 'client-quotations', id: quote2.id, data: { status: 'pending_approval' } })
-    await payload.update({ collection: 'client-quotations', id: quote2.id, data: { status: 'quotation_approved' } })
-    await payload.update({ collection: 'client-quotations', id: quote2.id, data: { status: 'order_confirmed' } })
-
-    console.log('  created 5 client quotations (2 converted to orders)')
   }
 
-  console.log('7/7 Progressing orders + supplier POs...')
+  console.log('7/8 Progressing orders + supplier POs...')
   const orders = await payload.find({ collection: 'orders', limit: 20 })
   if (orders.docs.length === 0) {
     console.log('  skip (no orders yet)')
   } else {
     const orderA: any = orders.docs.find((o: any) => o.customerName === 'Ramon Villareal')
     const orderB: any = orders.docs.find((o: any) => o.customerName === 'Grace Tolentino')
+    const orderC: any = orders.docs.find((o: any) => o.customerName === 'Precious Domingo')
 
     if (orderA && orderA.fulfillmentStatus !== 'delivered') {
       await payload.update({
@@ -329,6 +361,178 @@ async function seed() {
         },
       })
       console.log(`  order ${orderB.orderNumber}: shipped + partial payment, PO ${po.poNumber}`)
+    }
+
+    if (orderB) {
+      // A confirmed, shipped order means real work has happened on this
+      // lead -- reflect that on the RFQ itself instead of leaving it stuck
+      // on "Pending" (the auto-complete hook on Orders only fires once an
+      // order is BOTH paid and delivered, which this one deliberately isn't
+      // yet, so it needs a manual nudge here the way a real rep would).
+      // Checked independently of the block above so it still applies on a
+      // re-run where orderB already existed as 'shipped' from a prior run.
+      const rfqB = await payload.find({ collection: 'quotation-requests', where: { customerName: { equals: 'Grace Tolentino' } }, limit: 1 })
+      if (rfqB.docs.length > 0 && (rfqB.docs[0] as any).status === 'pending') {
+        await payload.update({ collection: 'quotation-requests', id: rfqB.docs[0].id, data: { status: 'processing' } })
+      }
+    }
+
+    if (orderC && orderC.fulfillmentStatus !== 'delivered') {
+      await payload.update({
+        collection: 'orders',
+        id: orderC.id,
+        data: {
+          orderDate: daysAgo(20),
+          targetDeliveryDate: daysAgo(14),
+          paymentStatus: 'paid',
+          paymentMethod: 'cash',
+          fulfillmentStatus: 'delivered',
+          opex: [
+            { description: 'Delivery van rental', amount: 900, expenseDate: daysAgo(15), status: 'liquidated' },
+          ],
+        },
+      })
+      const po = await payload.create({
+        collection: 'supplier-purchase-orders',
+        data: {
+          poDate: daysAgo(18),
+          project: 'Domingo Builders Crew PPE Restock',
+          supplierName: 'Cristina Lim', supplierCompany: 'Lim Hardware & Trading', supplierPhone: '0917-345-6702',
+          sourceOrderId: String(orderC.id),
+          preparedBy: 'Juan Dela Cruz',
+          items: [
+            { description: 'Safety Helmet (Hard Hat)', qty: 30, unit: 'piece', unitPrice: 180 },
+            { description: 'Safety Shoes Steel Toe', qty: 30, unit: 'piece', unitPrice: 850 },
+          ],
+          status: 'fulfilled',
+        },
+      })
+      // Setting paid+delivered above fires Orders.ts's own hook, which
+      // walks back through this order's source quotation to the original
+      // RFQ and marks it "Completed" -- same as a real order does. No
+      // manual status update needed here, unlike orderB above.
+      console.log(`  order ${orderC.orderNumber}: delivered + paid, PO ${po.poNumber} (auto-completes the Precious Domingo RFQ)`)
+    }
+
+    // Unconditional (not nested in the one-time blocks above) so a re-run
+    // still fixes this for an order whose PO already existed from a prior
+    // run -- otherwise Step 3+ on the pipeline detail view stays stuck
+    // looking incomplete even on an order that's actually delivered+paid.
+    for (const order of [orderA, orderB, orderC]) {
+      if (!order) continue
+      const itemsNeedingAssignment = Array.isArray(order.items) && order.items.some((item: any) => !item.assignedPOId)
+      if (!itemsNeedingAssignment) continue
+      const pos = await payload.find({ collection: 'supplier-purchase-orders', where: { sourceOrderId: { equals: String(order.id) } }, limit: 10 })
+      if (pos.docs.length === 0) continue
+      await assignAllItemsToPO(order.id, pos.docs[0].id)
+      console.log(`  linked order ${order.orderNumber}'s items to PO ${(pos.docs[0] as any).poNumber}`)
+    }
+
+    console.log('8/8 Delivery itineraries (Logistics)...')
+
+    if (orderA) {
+      const existing = await payload.find({ collection: 'delivery-itineraries' as any, where: { sourceOrderId: { equals: orderA.id } }, limit: 1 })
+      if (existing.docs.length === 0) {
+        const itin = await payload.create({
+          collection: 'delivery-itineraries' as any,
+          data: {
+            trackingNumber: `TRK-${orderA.orderNumber}`,
+            sourceOrderId: orderA.id,
+            status: 'delivered',
+            driverName: 'R. Dizon',
+            vehicleDetails: 'Isuzu Elf · NDW 4521',
+            stops: [
+              {
+                type: 'pickup',
+                address: 'Valenzuela Steel Complex, Valenzuela City',
+                contactName: 'Manalo Steel Distribution',
+                contactPhone: '0917-345-6701',
+                scheduledDate: daysAgo(26),
+                status: 'completed',
+              },
+              {
+                type: 'dropoff',
+                address: 'Km 14 Sumulong Hwy, Antipolo City',
+                contactName: 'Ramon Villareal',
+                contactPhone: '0917-234-5601',
+                scheduledDate: daysAgo(25),
+                status: 'completed',
+              },
+            ],
+          },
+        })
+        console.log(`  itinerary ${itin.trackingNumber} for order ${orderA.orderNumber} (delivered)`)
+      }
+    }
+
+    if (orderB) {
+      const existing = await payload.find({ collection: 'delivery-itineraries' as any, where: { sourceOrderId: { equals: orderB.id } }, limit: 1 })
+      if (existing.docs.length === 0) {
+        const itin = await payload.create({
+          collection: 'delivery-itineraries' as any,
+          data: {
+            trackingNumber: `TRK-${orderB.orderNumber}`,
+            sourceOrderId: orderB.id,
+            status: 'in-transit',
+            driverName: 'J. Bautista',
+            vehicleDetails: 'Foton Tornado · NBW 7830',
+            stops: [
+              {
+                type: 'pickup',
+                address: 'Banawe St, Quezon City',
+                contactName: 'Lim Hardware & Trading',
+                contactPhone: '0917-345-6702',
+                scheduledDate: daysAgo(3),
+                status: 'completed',
+              },
+              {
+                type: 'dropoff',
+                address: 'Ortigas Ave Ext, Cainta, Rizal',
+                contactName: 'Grace Tolentino',
+                contactPhone: '0917-234-5602',
+                scheduledDate: daysAgo(1),
+                status: 'arrived',
+              },
+            ],
+          },
+        })
+        console.log(`  itinerary ${itin.trackingNumber} for order ${orderB.orderNumber} (in transit)`)
+      }
+    }
+
+    if (orderC) {
+      const existing = await payload.find({ collection: 'delivery-itineraries' as any, where: { sourceOrderId: { equals: orderC.id } }, limit: 1 })
+      if (existing.docs.length === 0) {
+        const itin = await payload.create({
+          collection: 'delivery-itineraries' as any,
+          data: {
+            trackingNumber: `TRK-${orderC.orderNumber}`,
+            sourceOrderId: orderC.id,
+            status: 'delivered',
+            driverName: 'R. Dizon',
+            vehicleDetails: 'Isuzu Elf · NDW 4521',
+            stops: [
+              {
+                type: 'pickup',
+                address: 'Banawe St, Quezon City',
+                contactName: 'Lim Hardware & Trading',
+                contactPhone: '0917-345-6702',
+                scheduledDate: daysAgo(15),
+                status: 'completed',
+              },
+              {
+                type: 'dropoff',
+                address: 'Marcos Hwy, Marikina City',
+                contactName: 'Precious Domingo',
+                contactPhone: '0917-234-5607',
+                scheduledDate: daysAgo(14),
+                status: 'completed',
+              },
+            ],
+          },
+        })
+        console.log(`  itinerary ${itin.trackingNumber} for order ${orderC.orderNumber} (delivered)`)
+      }
     }
   }
 

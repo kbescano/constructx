@@ -57,12 +57,10 @@ export default function AdminLayout({
     } catch {
       // proceed to redirect regardless
     }
-    // Demo build has no login wall -- loop back through the auto-login
-    // route instead of the real /admin-login form, so clicking Logout
-    // doesn't dead-end on a credentials screen. Full navigation (not
-    // router.push) since this needs to hit a Route Handler and follow its
-    // redirect, not perform a client-side page transition.
-    window.location.href = '/api/demo-auth?redirect=/admin-dashboard'
+    // Sends them back to the role picker at '/' rather than a dead-end
+    // credentials form -- logging out doubles as "switch which role I'm
+    // exploring as."
+    window.location.href = '/?redirect=/admin-dashboard'
   }
 
   return (
@@ -106,10 +104,10 @@ export default function AdminLayout({
               )
             })}
             <Link
-              href="/"
+              href="/?redirect=/admin-dashboard"
               className="ml-4 text-[11px] font-bold uppercase tracking-[0.1em] text-[#050505]/35 hover:text-[#1877F2] transition-colors"
             >
-              &larr; Site
+              &larr; Switch Role
             </Link>
             <div className="ml-2 pl-2 border-l border-[#050505]/10">
               <NotificationBell role={isAdmin ? "admin" : "user"} />
@@ -200,11 +198,11 @@ export default function AdminLayout({
               )
             })}
             <Link
-              href="/"
+              href="/?redirect=/admin-dashboard"
               onClick={() => setOpen(false)}
               className="py-3.5 text-[14px] font-bold uppercase tracking-wide text-[#050505]/40"
             >
-              &larr; Back to Site
+              &larr; Switch Role
             </Link>
           </nav>
         </div>

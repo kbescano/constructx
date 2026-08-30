@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { peso, orderBreakdown, orderMarkupTotal, orderTrueNetProfit } from "@/lib/pipelineUtils";
+import OnboardingTip from "@/components/onboarding/OnboardingTip";
 
 export function TabSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -25,14 +26,34 @@ export function SummaryRow({ label, value, mono }: { label: string; value: strin
   );
 }
 
-export function EmptyStep({ text, ctaLabel, href }: { text: string; ctaLabel?: string; href?: string }) {
+export function EmptyStep({
+  text,
+  ctaLabel,
+  href,
+  tipId,
+  tipText,
+}: {
+  text: string;
+  ctaLabel?: string;
+  href?: string;
+  /** Optional onboarding tip shown next to the CTA on first visit. */
+  tipId?: string;
+  tipText?: string;
+}) {
+  const cta = ctaLabel && href && (
+    <Link href={href} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-[#1d1d1f] text-white hover:bg-gray-800 transition-all text-[10px] font-medium w-full sm:w-auto shadow-sm">
+      {ctaLabel} &rarr;
+    </Link>
+  );
   return (
     <div className="flex flex-col items-center justify-center p-7 md:p-10 bg-[#fbfbfd] rounded-3xl border border-dashed border-gray-200 text-center">
       <p className="text-[12px] text-gray-500 font-medium mb-4">{text}</p>
-      {ctaLabel && href && (
-        <Link href={href} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-[#1d1d1f] text-white hover:bg-gray-800 transition-all text-[10px] font-medium w-full sm:w-auto shadow-sm">
-          {ctaLabel} &rarr;
-        </Link>
+      {cta && tipId && tipText ? (
+        <OnboardingTip id={tipId} text={tipText} side="bottom">
+          {cta}
+        </OnboardingTip>
+      ) : (
+        cta
       )}
     </div>
   );

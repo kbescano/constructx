@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import CollectionStatusSelect from '@/components/CollectionStatusSelect'
+import OnboardingTip from '@/components/onboarding/OnboardingTip'
 
 const STATUS_OPTIONS = [
   { value: 'draft', label: 'Draft' },
@@ -54,9 +55,11 @@ function matchesSearch(q: any, needle: string): boolean {
 function QuotationCardBody({
   q,
   existingOrderId,
+  showControlTips = false,
 }: {
   q: any
   existingOrderId?: string
+  showControlTips?: boolean
 }) {
   const supplierCostTotal = (q.items || []).reduce((sum: number, i: any) => sum + (i.qty || 0) * (i.unitCost || 0), 0)
   const markupTotal = (q.items || []).reduce((sum: number, i: any) => sum + (i.qty || 0) * (i.marginAmount || 0), 0)
@@ -87,13 +90,25 @@ function QuotationCardBody({
         </div>
 
         <div className="w-full sm:w-auto" onClick={(e) => e.stopPropagation()}>
-          <CollectionStatusSelect
-            collection="client-quotations"
-            id={q.id}
-            status={q.status}
-            options={STATUS_OPTIONS}
-            colorClassMap={STATUS_COLORS}
-          />
+          {showControlTips ? (
+            <OnboardingTip id="quotations-status-select" text="Move this through Draft → Pending Approval → Approved → Order Confirmed as it progresses.">
+              <CollectionStatusSelect
+                collection="client-quotations"
+                id={q.id}
+                status={q.status}
+                options={STATUS_OPTIONS}
+                colorClassMap={STATUS_COLORS}
+              />
+            </OnboardingTip>
+          ) : (
+            <CollectionStatusSelect
+              collection="client-quotations"
+              id={q.id}
+              status={q.status}
+              options={STATUS_OPTIONS}
+              colorClassMap={STATUS_COLORS}
+            />
+          )}
         </div>
       </div>
 
@@ -196,20 +211,42 @@ function QuotationCardBody({
 
       {/* Bottom Action Footer */}
       <div className="mt-5 pt-3 border-t border-gray-50 flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
-        <Link
-          href={`/admin-dashboard/client-quotation?id=${q.id}`}
-          className="text-[9px] font-bold uppercase tracking-wider text-blue-600 hover:text-blue-800 transition-colors"
-        >
-          View Quotation &rarr;
-        </Link>
+        {showControlTips ? (
+          <OnboardingTip id="quotations-view-editor" text="Opens the full quotation editor — edit line items and pricing, or print/export the client-ready document.">
+            <Link
+              href={`/admin-dashboard/client-quotation?id=${q.id}`}
+              className="text-[9px] font-bold uppercase tracking-wider text-blue-600 hover:text-blue-800 transition-colors"
+            >
+              View Quotation &rarr;
+            </Link>
+          </OnboardingTip>
+        ) : (
+          <Link
+            href={`/admin-dashboard/client-quotation?id=${q.id}`}
+            className="text-[9px] font-bold uppercase tracking-wider text-blue-600 hover:text-blue-800 transition-colors"
+          >
+            View Quotation &rarr;
+          </Link>
+        )}
 
         {existingOrderId && (
-          <Link
-            href={`/admin-dashboard/orders?id=${existingOrderId}`}
-            className="text-[9px] font-bold uppercase tracking-wider px-3 py-1 bg-[#050505] text-white rounded hover:bg-[#1877F2] transition-colors"
-          >
-            View Converted Order &rarr;
-          </Link>
+          showControlTips ? (
+            <OnboardingTip id="quotations-view-order" text="Once a quotation converts to an order, jump straight to its fulfillment tracking here." side="left">
+              <Link
+                href={`/admin-dashboard/orders?id=${existingOrderId}`}
+                className="text-[9px] font-bold uppercase tracking-wider px-3 py-1 bg-[#050505] text-white rounded hover:bg-[#1877F2] transition-colors"
+              >
+                View Converted Order &rarr;
+              </Link>
+            </OnboardingTip>
+          ) : (
+            <Link
+              href={`/admin-dashboard/orders?id=${existingOrderId}`}
+              className="text-[9px] font-bold uppercase tracking-wider px-3 py-1 bg-[#050505] text-white rounded hover:bg-[#1877F2] transition-colors"
+            >
+              View Converted Order &rarr;
+            </Link>
+          )
         )}
       </div>
     </>
@@ -359,13 +396,13 @@ export default function ClientQuotationsListClient({
         </div>
       ) : (
         <div className="flex flex-col gap-5">
-          {filtered.map((q: any) => (
+          {filtered.map((q: any, index: number) => (
             <div
               key={q.id}
               onClick={() => openView(q.id)}
               className="bg-white border border-gray-200 rounded p-4 sm:p-5 transition-all hover:border-gray-300 hover:shadow-sm cursor-pointer"
             >
-              <QuotationCardBody q={q} existingOrderId={orderIdByQuotationId[String(q.id)]} />
+              <QuotationCardBody q={q} existingOrderId={orderIdByQuotationId[String(q.id)]} showControlTips={index === 0} />
             </div>
           ))}
         </div>
@@ -390,7 +427,7 @@ export default function ClientQuotationsListClient({
                 ✕
               </button>
             </div>
-            <QuotationCardBody q={openQuotation} existingOrderId={orderIdByQuotationId[String(openQuotation.id)]} />
+            <QuotationCardBody q={openQuotation} existingOrderId={orderIdByQuotationId[String(openQuotation.id)]} showControlTips />
           </div>
         </div>
       )}

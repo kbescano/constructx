@@ -174,13 +174,10 @@ export default async function ReportsPage({
 }) {
   const searchParamsResolved = await searchParams
   
-  // Set Defaults to Current Month & Year
-  const now = new Date()
-  const defaultMonth = String(now.getMonth() + 1).padStart(2, '0')
-  const defaultYear = String(now.getFullYear())
-
-  const activeMonth = searchParamsResolved.month || defaultMonth
-  const activeYear = searchParamsResolved.year || defaultYear
+  // Demo default -- show every seeded record rather than hiding them behind
+  // "this month" until someone manually picks "All Months"/"All Years".
+  const activeMonth = searchParamsResolved.month || 'all'
+  const activeYear = searchParamsResolved.year || 'all'
 
   const payload = await getPayloadClient()
 

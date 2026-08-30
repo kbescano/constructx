@@ -11,6 +11,7 @@ import {
   StepDelivery,
   StepClosed,
 } from "@/components/pipeline/PipelineSteps";
+import OnboardingTip from "@/components/onboarding/OnboardingTip";
 
 export default function PipelineStepper({
   request,
@@ -166,38 +167,49 @@ export default function PipelineStepper({
                       } ${done ? "bg-[#1877F2]" : isDisabled ? "bg-gray-100" : "bg-gray-200"}`}
                     />
                   )}
-                  <button
-                    onClick={() => !isDisabled && handleTabChange(step.key)}
-                    disabled={isDisabled}
-                    className={`relative z-10 flex flex-col items-center gap-1 w-full focus:outline-none transition-all duration-300 ${
-                      isDisabled ? "cursor-not-allowed opacity-40 grayscale" : "cursor-pointer"
-                    }`}
-                  >
-                    <div
-                      className={`flex items-center justify-center w-[20px] h-[20px] rounded-full text-[8px] font-semibold transition-all duration-300 ${
-                        done
-                          ? "bg-[#1877F2] text-white ring-4 ring-[#fbfbfd]"
-                          : isActive
-                          ? "bg-[#1d1d1f] text-white ring-4 ring-gray-200/50 scale-110 shadow-sm"
-                          : "bg-white border-2 border-gray-200 text-gray-400 group-hover:border-gray-300 group-hover:text-gray-600"
-                      }`}
-                    >
-                      {done ? (
-                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4">
-                          <path d="M20 6L9 17l-5-5" />
-                        </svg>
-                      ) : (
-                        i + 1
-                      )}
-                    </div>
-                    <span
-                      className={`text-[8px] font-medium tracking-tight text-center leading-[1.2] transition-colors w-full px-1 max-w-[90px] break-words ${
-                        isActive ? "text-[#1d1d1f] font-semibold" : done ? "text-gray-700" : "text-gray-400"
-                      }`}
-                    >
-                      {step.label}
-                    </span>
-                  </button>
+                  {(() => {
+                    const stepButton = (
+                      <button
+                        onClick={() => !isDisabled && handleTabChange(step.key)}
+                        disabled={isDisabled}
+                        className={`relative z-10 flex flex-col items-center gap-1 w-full focus:outline-none transition-all duration-300 ${
+                          isDisabled ? "cursor-not-allowed opacity-40 grayscale" : "cursor-pointer"
+                        }`}
+                      >
+                        <div
+                          className={`flex items-center justify-center w-[20px] h-[20px] rounded-full text-[8px] font-semibold transition-all duration-300 ${
+                            done
+                              ? "bg-[#1877F2] text-white ring-4 ring-[#fbfbfd]"
+                              : isActive
+                              ? "bg-[#1d1d1f] text-white ring-4 ring-gray-200/50 scale-110 shadow-sm"
+                              : "bg-white border-2 border-gray-200 text-gray-400 group-hover:border-gray-300 group-hover:text-gray-600"
+                          }`}
+                        >
+                          {done ? (
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4">
+                              <path d="M20 6L9 17l-5-5" />
+                            </svg>
+                          ) : (
+                            i + 1
+                          )}
+                        </div>
+                        <span
+                          className={`text-[8px] font-medium tracking-tight text-center leading-[1.2] transition-colors w-full px-1 max-w-[90px] break-words ${
+                            isActive ? "text-[#1d1d1f] font-semibold" : done ? "text-gray-700" : "text-gray-400"
+                          }`}
+                        >
+                          {step.label}
+                        </span>
+                      </button>
+                    );
+                    return i === 0 ? (
+                      <OnboardingTip id="pipeline-stepper-overview" text="Every order moves through these 6 stages. Completed steps stay clickable so you can go back and review them." wrapperClassName="w-full">
+                        {stepButton}
+                      </OnboardingTip>
+                    ) : (
+                      stepButton
+                    );
+                  })()}
                 </div>
               );
             })}
