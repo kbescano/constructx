@@ -13,6 +13,11 @@ data.
 
 - **Admin dashboard** (`/admin-dashboard`) — quotation inbox, client
   quotations, orders, supplier POs, deliveries, reports, sales report
+- **No login wall** — the bare domain root and `/admin-dashboard` both
+  auto-sign the visitor in as the seeded demo admin (see `/api/demo-auth`),
+  so sharing the plain link is enough. The real `/admin-login` form still
+  works as a manual fallback (e.g. to sign in as a sales-staff account
+  instead, to see that role's narrower view).
 - **Payload CMS** — the data layer (products, clients, suppliers, users) at `/admin`
 - **Onboarding tips** — small dismissible bubbles on the first few screens
   (search, cards, nav, "create inquiry") that explain what each thing does.
@@ -36,14 +41,16 @@ data.
    npx tsx seed-categories.ts   # product categories (Bolts & Fasteners, Steel Plates, etc.)
    npx tsx scripts/seed.ts      # staff accounts, products, clients, suppliers, pipeline data
    ```
-5. Visit `localhost:3000/admin-login` and sign in with any of the accounts the seed script prints, e.g.:
-   - `admin@constructx.demo` / `Demo1234!` — Super Admin (sees everything)
-   - `juan@constructx.demo` / `Demo1234!` — Sales staff (sees only their own assigned requests)
+5. Visit `localhost:3000` — you're auto-signed-in as the demo admin
+   (`admin@constructx.demo` / `Demo1234!`) and land on the dashboard. To see
+   the narrower sales-staff view instead, go to `/admin-login` and sign in
+   as `juan@constructx.demo` / `Demo1234!` (or `maria@constructx.demo`).
 
-**Before sharing the link publicly:** change these seeded passwords (or
-delete the seeded users and create your own), and re-run `npx tsx
-scripts/seed.ts` any time you want to reset the demo back to its starting
-state — it's safe to re-run, it skips whatever already exists.
+**Before sharing the link publicly:** change the seeded passwords, or set
+`DEMO_LOGIN_EMAIL` / `DEMO_LOGIN_PASSWORD` in `.env` to point auto-login at
+a different account entirely. Re-run `npx tsx scripts/seed.ts` any time you
+want to reset the demo back to its starting state — it's safe to re-run, it
+skips whatever already exists.
 
 ## Notes for whoever's presenting this demo
 

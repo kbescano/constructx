@@ -11,7 +11,11 @@ export default async function AdminDashboardLayout({ children }: { children: Rea
   const headers = await getHeaders()
   const { user } = await payload.auth({ headers })
   if (!user) {
-    redirect('/admin-login?redirect=/admin-dashboard')
+    // Demo build -- no login wall. Auto-sign-in as the seeded demo admin
+    // instead of sending visitors to a credentials form (see
+    // /api/demo-auth). Falls back to the real login form on its own if
+    // that account doesn't exist yet.
+    redirect('/api/demo-auth?redirect=/admin-dashboard')
   }
 
   return (

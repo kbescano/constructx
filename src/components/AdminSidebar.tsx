@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import NotificationBell from '@/components/NotificationBell'
 import OnboardingTip, { resetOnboardingTips } from '@/components/onboarding/OnboardingTip'
 
@@ -38,7 +38,6 @@ export default function AdminLayout({
   user?: AdminUser
 }) {
   const pathname = usePathname()
-  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [tipsResetJustNow, setTipsResetJustNow] = useState(false)
 
@@ -58,8 +57,12 @@ export default function AdminLayout({
     } catch {
       // proceed to redirect regardless
     }
-    router.push('/admin-login')
-    router.refresh()
+    // Demo build has no login wall -- loop back through the auto-login
+    // route instead of the real /admin-login form, so clicking Logout
+    // doesn't dead-end on a credentials screen. Full navigation (not
+    // router.push) since this needs to hit a Route Handler and follow its
+    // redirect, not perform a client-side page transition.
+    window.location.href = '/api/demo-auth?redirect=/admin-dashboard'
   }
 
   return (
