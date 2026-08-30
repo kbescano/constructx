@@ -1,0 +1,319 @@
+"use client";
+
+import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+
+type Product = { id: string; name: string; unit: string };
+type LineItem = { materialId: string; quantity: number; sizeDescription?: string };
+
+const fieldClass =
+  "w-full px-4 py-3.5 bg-white border border-[#050505]/15 text-[15px] text-[#050505] placeholder:text-[#050505]/35 focus:outline-none focus:border-[#1877F2] transition-colors duration-300";
+
+const labelClass =
+  "text-[10px] font-bold uppercase tracking-[0.2em] text-[#050505]/40 mb-2 block";
+
+export default function QuoteForm({ products }: { products: Product[] }) {
+  const searchParams = useSearchParams();
+  const preselected = searchParams.get("product");
+  const preselectedMaterial = products.find(
+    (m) => String(m.id) === String(preselected),
+  );
+
+  const [status, setStatus] = useState<
+    "idle" | "submitting" | "done" | "error"
+  >("idle");
+  const [items, setItems] = useState<LineItem[]>([
+    {
+      materialId: preselectedMaterial?.id ?? products[0]?.id ?? "",
+      quantity: 1,
+      sizeDescription: "",
+    },
+  ]);
+
+  function addItem() {
+    setItems((prev) => [
+      ...prev,
+      { materialId: products[0]?.id ?? "", quantity: 1, sizeDescription: "" },
+    ]);
+  }
+  function removeItem(index: number) {
+    setItems((prev) => prev.filter((_, i) => i !== index));
+  }
+  function updateItem(index: number, patch: Partial<LineItem>) {
+    setItems((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, ...patch } : item)),
+    );
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setStatus("submitting");
+    const form = e.currentTarget;
+    
+    const data = {
+      customerName: (
+        form.elements.namedItem("customerName") as HTMLInputElement
+      ).value,
+      phone: (form.elements.namedItem("phone") as HTMLInputElement).value,
+      email: (form.elements.namedItem("email") as HTMLInputElement).value,
+      projectType: (form.elements.namedItem("projectType") as HTMLSelectElement)
+        .value,
+      message: (form.elements.namedItem("message") as HTMLTextAreaElement)
+        .value,
+      source: "website",
+      items: items
+      .filter((i) => i.materialId)
+      .map((i) => ({
+        material: isNaN(Number(i.materialId)) ? i.materialId : Number(i.materialId),
+        quantity: i.quantity,
+        sizeDescription: i.sizeDescription || "",
+      })),
+    };
+    
+    try {
+      const res = await fetch("/api/quotation-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Request failed");
+      setStatus("done");
+      form.reset();
+    } catch {
+      setStatus("error");
+    }
+  }
+
+  if (status === "done") {
+    return (
+      <div className="border border-[#050505]/10 bg-white p-10 md:p-14 text-center">
+        <div className="w-10 h-[3px] bg-[#1877F2] mx-auto mb-6" />
+        <h2 className="text-[24px] md:text-[28px] font-black uppercase tracking-tight text-[#050505] mb-4">
+          Request Received.
+        </h2>
+        <p className="text-[15px] text-[#050505]/60 font-medium max-w-[440px] mx-auto">
+          Thanks -- your project details are with our team. We&apos;ll reach out
+          directly by phone or email with your quotation shortly.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      {preselectedMaterial && (
+        <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.15em] text-[#3D5568] m-0">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#1877F2] inline-block" />
+          Pre-filled: {preselectedMaterial.name}
+        </p>
+      )}
+
+      <div>
+        <label className={labelClass} htmlFor="customerName">
+          Full Name
+        </label>
+        <input
+          id="customerName"
+          name="customerName"
+          placeholder="Juan dela Cruz"
+          required
+          className={fieldClass}
+        />
+      </div>
+      <div>
+        <label className={labelClass} htmlFor="phone">
+          Phone Number
+        </label>
+        <input
+          id="phone"
+          name="phone"
+          type="tel"
+          placeholder="+639..."
+          required
+          className={fieldClass}
+        />
+      </div>
+      <div>
+        <label className={labelClass} htmlFor="email">
+          Email{" "}
+          <span className="normal-case tracking-normal font-medium">
+            (optional)
+          </span>
+        </label>
+        <input
+          id="email"
+          name="email"
+          type="email"
+          placeholder="you@company.com"
+          className={fieldClass}
+        />
+      </div>
+      <div>
+        <label className={labelClass} htmlFor="projectType">
+          Project Type
+        </label>
+        <select id="projectType" name="projectType" className={fieldClass}>
+          <option value="residential">Residential</option>
+          <option value="commercial">Commercial</option>
+          <option value="renovation">Renovation</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div className="border-t border-[#050505]/10 pt-6 mt-2">
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#050505]/40 mb-4">
+          Products Needed
+        </p>
+        <div className="flex flex-col gap-3.5 sm:gap-4">
+          {items.map((item, index) => {
+            const selected =
+              products.find((m) => String(m.id) === String(item.materialId)) ??
+              products[0];
+            return (
+              <div
+                key={index}
+                className="flex flex-col gap-2 bg-slate-50/60 sm:bg-transparent p-3.5 sm:p-0 border border-slate-200/70 sm:border-none shadow-xs sm:shadow-none"
+              >
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-2 sm:items-center">
+                  <select
+                    value={item.materialId}
+                    onChange={(e) =>
+                      updateItem(index, { materialId: e.target.value })
+                    }
+                    className={`${fieldClass} w-full sm:flex-1 sm:min-w-0 h-[48px] sm:h-[52px] py-0 appearance-none pr-9 bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2301172f%22 stroke-width=%222%22><path d=%22M6 9l6 6 6-6%22/></svg>')] bg-no-repeat bg-[right_14px_center]`}
+                  >
+                    {products.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <div className="flex items-center justify-between sm:justify-start sm:flex-none gap-3 pt-2 sm:pt-0 border-t border-slate-200/60 sm:border-none">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        value={item.quantity}
+                        onChange={(e) =>
+                          updateItem(index, { quantity: Number(e.target.value) })
+                        }
+                        className={`${fieldClass} !w-[72px] px-2 flex-shrink-0 text-center h-[48px] sm:h-[52px] py-0`}
+                        aria-label="Quantity"
+                      />
+                      <span className="text-[11px] font-medium uppercase tracking-wide text-[#050505]/50 w-[56px] flex-shrink-0 truncate">
+                        {selected?.unit ?? ""}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => removeItem(index)}
+                      aria-label="Remove item"
+                      disabled={items.length === 1}
+                      className="w-9 h-9 sm:w-7 sm:h-7 flex items-center justify-center flex-shrink-0 text-[#050505]/40 hover:text-red-600 disabled:opacity-0 disabled:pointer-events-none transition-colors text-xl sm:text-lg bg-slate-200/40 sm:bg-transparent"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Size / Specs Field */}
+                <input
+                  type="text"
+                  placeholder="Size / Specs (optional) e.g., 20mm, 6m length"
+                  value={item.sizeDescription || ""}
+                  onChange={(e) =>
+                    updateItem(index, { sizeDescription: e.target.value })
+                  }
+                  className={`${fieldClass} h-[44px] py-0 text-[13px]`}
+                />
+              </div>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          onClick={addItem}
+          className="mt-4 w-full border border-dashed border-[#050505]/20 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.15em] text-[#3D5568] hover:border-[#1877F2] hover:text-[#1877F2] transition-colors duration-300"
+        >
+          + Add Another Product
+        </button>
+      </div>
+
+      {/* Quote Summary */}
+      <div className="border border-[#050505]/10 bg-white p-6 mt-2">
+        <div className="w-8 h-[3px] bg-[#1877F2] mb-4" />
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#050505]/40 mb-4">
+          Quote Summary
+        </p>
+        <ul className="flex flex-col gap-3 m-0 p-0 list-none">
+          {items.map((item, index) => {
+            const mat =
+              products.find((m) => String(m.id) === String(item.materialId)) ??
+              products[0];
+            if (!mat) return null;
+            return (
+              <li
+                key={index}
+                className="flex justify-between items-start gap-4 text-[14px]"
+              >
+                <div className="flex flex-col">
+                  <span className="font-medium text-[#050505] leading-snug">
+                    {mat.name}
+                  </span>
+                  {item.sizeDescription && (
+                    <span className="text-[12px] text-[#050505]/50 mt-0.5">
+                      {item.sizeDescription}
+                    </span>
+                  )}
+                </div>
+                <span className="font-mono text-[#050505]/50 whitespace-nowrap pt-0.5">
+                  {item.quantity} {mat.unit ?? ""}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="border-t border-[#050505]/10 mt-4 pt-4 flex flex-col sm:flex-row sm:justify-between sm:items-baseline gap-2 text-[12px]">
+          <span className="font-bold uppercase tracking-wide text-[#050505]">
+            {items.length} {items.length === 1 ? "product" : "products"}{" "}
+            requested
+          </span>
+          <span className="text-[#050505]/40 font-medium">
+            Pricing follows by phone/email
+          </span>
+        </div>
+      </div>
+
+      <div>
+        <label className={labelClass} htmlFor="message">
+          Project Details
+        </label>
+        <textarea
+          id="message"
+          name="message"
+          rows={4}
+          placeholder="Timeline, delivery location, special instructions, etc."
+          className={`${fieldClass} resize-y`}
+        />
+      </div>
+
+      <button
+        type="submit"
+        disabled={status === "submitting"}
+        className="relative flex items-center justify-center w-full bg-white text-[#3D5568] py-4 overflow-hidden group cursor-pointer border-2 border-[#1877F2] disabled:opacity-60 mt-2 transition-colors duration-300"
+      >
+        <span className="absolute inset-0 bg-[#1877F2] transform scale-x-0 origin-left transition-transform duration-500 ease-[cubic-bezier(0.87,0,0.13,1)] group-hover:scale-x-100" />
+        <span className="relative z-10 text-[13px] text-[#1877F2] font-bold uppercase tracking-[0.2em] transition-colors duration-300 group-hover:text-[#fdfffc]">
+          {status === "submitting" ? "Sending..." : "Send Request"}
+        </span>
+      </button>
+      {status === "error" && (
+        <p className="text-[13px] text-red-700 font-medium text-center m-0">
+          Something went wrong. Please try again.
+        </p>
+      )}
+    </form>
+  );
+}

@@ -1,0 +1,366 @@
+import type { CollectionConfig } from "payload";
+
+export const QuotationRequests: CollectionConfig = {
+  slug: "quotation-requests",
+  admin: {
+    useAsTitle: "customerName",
+    defaultColumns: [
+      "customerName",
+      "assignedTo",
+      "projectType",
+      "status",
+      "createdAt",
+    ],
+    group: "Leads",
+    description:
+      "Customer quotation requests. Review here and follow up manually -- nothing is sent automatically.",
+  },
+  access: {
+    create: () => true,
+    read: ({ req }) => {
+      if (!req.user) return false;
+      if (req.user.role === "admin" || req.user.role === "marketing") return true;
+      return { assignedTo: { equals: req.user.id } };
+    },
+    update: ({ req }) => {
+      if (!req.user) return false;
+      if (req.user.role === "admin" || req.user.role === "marketing") return true;
+      return { assignedTo: { equals: req.user.id } };
+    },
+    delete: ({ req }) => Boolean(req.user && req.user.role === "admin"),
+  },
+  hooks: {
+    afterChange: [
+      async ({ doc, operation, req }) => {
+        if (operation !== "create") return doc;
+        try {
+          // Broadcast: create ONE notification, not one per admin. Any
+          // admin can already read every notification regardless of
+          // `recipient` (see Notifications.ts access rules), so looping
+          // over admins.docs here used to create a duplicate document per
+          // admin account -- which showed up as literal duplicate rows in
+          // the bell for anyone who could see more than one admin's copy.
+          await req.payload.create({
+            collection: "notifications" as any,
+            data: {
+              message: `New RFQ from ${doc.customerName || "a customer"}`,
+              link: `/admin-dashboard/pipeline/${doc.id}`,
+              read: false,
+            },
+          });
+        } catch (err) {
+          console.error("Failed to notify admins of new RFQ:", err);
+        }
+        return doc;
+      },
+      async ({ doc, previousDoc, operation, req }) => {
+        if (operation === "update") {
+          const currentStaffId =
+            doc.assignedTo && typeof doc.assignedTo === "object"
+              ? doc.assignedTo.id
+              : doc.assignedTo;
+          const prevStaffId =
+            previousDoc?.assignedTo &&
+            typeof previousDoc.assignedTo === "object"
+              ? previousDoc.assignedTo.id
+              : previousDoc?.assignedTo;
+
+          if (
+            currentStaffId &&
+            String(currentStaffId) !== String(prevStaffId || "")
+          ) {
+            try {
+              const recipientId = isNaN(Number(currentStaffId))
+                ? currentStaffId
+                : Number(currentStaffId);
+
+              await req.payload.create({
+                collection: "notifications" as any,
+                data: {
+                  recipient: recipientId,
+                  message: `You've been assigned a new RFQ from ${doc.customerName || "a customer"}`,
+                  link: `/admin-dashboard/pipeline/${doc.id}`,
+                  read: false,
+                },
+              });
+            } catch (err) {
+              console.error("Failed to create assignment notification:", err);
+            }
+          }
+        }
+        return doc;
+      },
+      async ({ doc, previousDoc, operation, req }) => {
+        // ✨ Skip the broadcast when this status change came from an
+        // internal system cascade (e.g. Orders.ts auto-completing the RFQ
+        // once payment + delivery are both confirmed) rather than a
+        // person manually changing status. The delivery notification
+        // already covers that event with a proper message -- this generic
+        // hook would otherwise show a misleading "Someone changed..."
+        // line for something no one actually clicked.
+        if (req.context?.skipStatusBroadcast) return doc;
+
+        if (
+          operation === "update" &&
+          previousDoc &&
+          doc.status !== previousDoc.status
+        ) {
+          try {
+            const changedBy = req.user?.name || req.user?.email || "Someone";
+            await req.payload.create({
+              collection: "notifications" as any,
+              data: {
+                message: `${changedBy} changed RFQ from ${doc.customerName || "a customer"} from "${previousDoc.status}" to "${doc.status}"`,
+                link: `/admin-dashboard/pipeline/${doc.id}`,
+                read: false,
+              },
+            });
+          } catch (err) {
+            console.error("Failed to notify admins of RFQ status change:", err);
+          }
+        }
+        return doc;
+      },
+      async ({ doc, previousDoc, operation, req }) => {
+        // checkStaleRequestAlerts (src/lib/staleRequestAlerts.ts) raises an
+        // "Action Needed" alert two ways: pending 5+ minutes untouched, or
+        // processing 24+ hours with no update note. Either flag counts as
+        // resolved the moment there's real activity again -- a status
+        // change (covers pending -> processing, and moving off processing
+        // entirely), or simply posting a new update note while it's still
+        // sitting in Processing. No need to distinguish which rule raised
+        // it; just close whatever's open for this request.
+        if (operation !== "update" || !previousDoc) return doc;
+
+        const statusChanged = doc.status !== previousDoc.status;
+        const newNotePosted =
+          Array.isArray(doc.statusUpdates) &&
+          doc.statusUpdates.length > (previousDoc.statusUpdates?.length || 0);
+
+        if (!statusChanged && !newNotePosted) return doc;
+
+        try {
+          const openAlerts = await req.payload.find({
+            collection: "action-items" as any,
+            where: {
+              and: [
+                { sourceRequestId: { equals: String(doc.id) } },
+                { status: { not_equals: "closed" } },
+              ],
+            },
+            limit: 20,
+            depth: 0,
+          });
+          for (const alert of openAlerts.docs as any[]) {
+            const comments = Array.isArray(alert.comments) ? [...alert.comments] : [];
+            comments.push({
+              message: statusChanged
+                ? `Auto-resolved — status changed to "${doc.status}".`
+                : "Auto-resolved — a new update note was posted.",
+              authorName: "Automated Alert",
+              authorRole: "admin",
+              createdAt: new Date().toISOString(),
+            });
+            await req.payload.update({
+              collection: "action-items" as any,
+              id: alert.id,
+              data: { status: "closed", comments },
+              overrideAccess: true,
+            });
+          }
+        } catch (err) {
+          console.error("Failed to auto-resolve stale-request alert:", err);
+        }
+        return doc;
+      },
+    ],
+  },
+  fields: [
+    { name: "customerName", type: "text", required: true },
+    { name: "phone", type: "text" },
+    { name: "email", type: "email" },
+    {
+      name: "assignedTo",
+      type: "relationship",
+      relationTo: "users",
+      label: "Assigned Staff",
+      // Payload re-checks filterOptions server-side on every save, not
+      // just to narrow the admin UI's picker -- so this has to match the
+      // same "role=user OR admin@constructx.demo" set the dashboard's own
+      // staff-dropdown queries use (admin-dashboard/page.tsx,
+      // inquiry-tracker/page.tsx), or assigning that account gets silently
+      // rejected as an invalid relationship even though it shows up as
+      // an option.
+      filterOptions: {
+        or: [
+          { role: { equals: "user" } },
+          { email: { equals: "admin@constructx.demo" } },
+        ],
+      },
+      // Filtered on directly by the Staff dropdown in the admin dashboard,
+      // and by every single non-admin's read access rule (`{ assignedTo:
+      // { equals: user.id } }` runs on every list/read a staff account
+      // does) -- indexed so both stay a lookup instead of a table scan as
+      // the collection grows.
+      index: true,
+      admin: {
+        description:
+          "Which sales staff member owns following up on this request. Only admins can change this.",
+      },
+      access: {
+        update: ({ req }) =>
+          Boolean(
+            req.user &&
+            (req.user.role === "admin" || req.user.role === "marketing"),
+          ),
+      },
+    },
+    {
+      name: "projectType",
+      type: "select",
+      options: [
+        { label: "Residential", value: "residential" },
+        { label: "Commercial", value: "commercial" },
+        { label: "Renovation", value: "renovation" },
+        { label: "Other", value: "other" },
+      ],
+    },
+    {
+      name: "items",
+      type: "array",
+      label: "Products requested",
+      admin: { description: "Products and quantities the customer requested" },
+      fields: [
+        {
+          name: "material",
+          type: "relationship",
+          relationTo: "products",
+          required: true,
+        },
+        {
+          name: "sizeDescription",
+          type: "text",
+          label: "Size / Specs (Optional)",
+        },
+        {
+          name: "quantity",
+          type: "number",
+          required: true,
+          min: 1,
+          defaultValue: 1,
+        },
+      ],
+    },
+    {
+      name: "message",
+      type: "textarea",
+      label: "Project details / message from customer",
+    },
+    {
+      name: "source",
+      type: "select",
+      required: true,
+      defaultValue: "website",
+      options: [
+        { label: "Website", value: "website" },
+        { label: "Facebook", value: "facebook" },
+        { label: "Google", value: "google" },
+        { label: "Viber", value: "viber" },
+        { label: "Dummy", value: "dummy" },
+        { label: "Email", value: "email" },
+        { label: "Market Place", value: "marketPlace" },
+        { label: "Existing Client", value: "existingClient" },
+        { label: "Call/Text", value: "callText" },
+        { label: "Other", value: "other" },
+      ],
+    },
+    {
+      name: "facebookLink",
+      type: "textarea",
+      label: "Facebook Profile / Post Link",
+      admin: {
+        description:
+          "Optional: link to the customer's Facebook profile or the post/message thread this inquiry came from.",
+        condition: (data) => data?.source === "facebook",
+      },
+    },
+    {
+      name: "sourceOther",
+      type: "text",
+      label: "Specify Source",
+      admin: {
+        description: "What was the actual source, since it wasn't in the list?",
+        condition: (data) => data?.source === "other",
+      },
+    },
+    {
+      name: "status",
+      type: "select",
+      defaultValue: "pending",
+      // Filtered directly by the Status pills in the admin dashboard inbox.
+      index: true,
+      options: [
+        { label: "Pending", value: "pending" },
+        { label: "Processing", value: "processing" },
+        { label: "Quote Sent", value: "quote-sent" },
+        { label: "Informal Quote", value: "informal-quote" },
+        { label: "Completed", value: "completed" },
+        { label: "Rejected", value: "rejected" },
+      ],
+      admin: {
+        description: "Admin updates this manually to track follow-up progress.",
+      },
+    },
+    {
+      name: "internalNotes",
+      type: "textarea",
+      label: "Internal notes (not visible to customer)",
+    },
+    {
+      name: "statusUpdates",
+      type: "array",
+      label: "Update Notes",
+      admin: {
+        description:
+          "Running log of manual status updates staff have posted for this request.",
+      },
+      fields: [
+        { name: "note", type: "textarea", required: true },
+        {
+          name: "postedBy",
+          type: "relationship",
+          relationTo: "users",
+          admin: { readOnly: true },
+        },
+        { name: "postedByName", type: "text", admin: { readOnly: true } }, // denormalized for display without a populate
+        { name: "postedAt", type: "date", admin: { readOnly: true } },
+      ],
+      access: {
+        // Staff can add updates only to their own assigned requests; admins/marketing can add to any
+        update: ({ req }) => {
+          if (!req.user) return false;
+          if (req.user.role === "admin" || req.user.role === "marketing")
+            return true;
+          return true; // field-level access can't easily scope to "own assigned" -- enforced at the collection's update access instead
+        },
+      },
+      hooks: {
+        // AddUpdateNote.tsx (and a direct admin-panel edit) both just PATCH
+        // the whole array with a plain { note } entry appended -- stamp a
+        // timestamp on whichever entries don't have one yet, rather than
+        // relying on the client's clock. Existing entries already carrying
+        // a postedAt are left untouched.
+        beforeChange: [
+          ({ value }) => {
+            if (!Array.isArray(value)) return value;
+            return value.map((entry: any) => ({
+              ...entry,
+              postedAt: entry?.postedAt || new Date().toISOString(),
+            }));
+          },
+        ],
+      },
+    },
+  ],
+  timestamps: true,
+};

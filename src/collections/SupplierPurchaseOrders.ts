@@ -1,0 +1,158 @@
+import type { CollectionConfig } from 'payload'
+
+export const SupplierPurchaseOrders: CollectionConfig = {
+  slug: 'supplier-purchase-orders',
+  labels: { singular: 'Supplier PO', plural: 'Supplier POs' },
+  admin: {
+    useAsTitle: 'poNumber',
+    defaultColumns: ['poNumber', 'supplierName', 'project', 'poDate', 'status'],
+    group: 'Operations',
+    hidden: ({ user }) => user?.role === 'marketing',
+  },
+  access: {
+    read: ({ req: { user } }) => Boolean(user),
+    create: ({ req: { user } }) => Boolean(user),
+    update: ({ req: { user } }) => Boolean(user),
+    delete: ({ req: { user } }) => Boolean(user),
+  },
+  hooks: {
+    beforeChange: [
+      async ({ data, operation, req }) => {
+        if (operation === 'create' && !data.poNumber) {
+          const year = new Date().getFullYear()
+          const existing = await req.payload.find({
+            collection: 'supplier-purchase-orders',
+            where: { poNumber: { like: `${year}-` } },
+            sort: '-poNumber',
+            limit: 1,
+          })
+          let next = 1
+          if (existing.docs.length > 0) {
+            const last = existing.docs[0].poNumber as string
+            next = parseInt(last.split('-').pop() || '0', 10) + 1
+          }
+          data.poNumber = `${year}-${String(next).padStart(9, '0')}`
+        }
+        return data
+      },
+    ],
+    afterChange: [
+      // ✨ NEW: "Assign/Change supplier" -- admin only. Fires when a PO is
+      // first created (= a supplier is being assigned) or when an
+      // existing PO's supplierName changes.
+      async ({ doc, previousDoc, operation, req }) => {
+        try {
+          const isNewAssignment = operation === 'create'
+          const supplierChanged =
+            operation === 'update' &&
+            doc.supplierName &&
+            doc.supplierName !== previousDoc?.supplierName
+
+          if ((isNewAssignment || supplierChanged) && doc.sourceOrderId) {
+            const verb = isNewAssignment ? 'assigned' : 'changed'
+            await req.payload.create({
+              collection: 'notifications' as any,
+              data: {
+                message: `Supplier ${verb} for PO ${doc.poNumber || ''}: ${doc.supplierName || 'Unnamed supplier'}.`,
+                link: `/admin-dashboard/orders?id=${doc.sourceOrderId}`,
+                audienceRoles: ['admin'],
+                read: false,
+              },
+            })
+          }
+        } catch (err) {
+          console.error('Failed to notify of supplier assignment:', err)
+        }
+        return doc
+      },
+      // ✨ NEW: "Order fulfilled" -- admin only. Fires once, exactly when
+      // the LAST linked PO for an order flips to "fulfilled" (i.e. every
+      // PO belonging to this order is now fulfilled).
+      async ({ doc, previousDoc, operation, req }) => {
+        if (
+          operation === 'update' &&
+          doc.status === 'fulfilled' &&
+          previousDoc?.status !== 'fulfilled' &&
+          doc.sourceOrderId
+        ) {
+          try {
+            const siblingPOs = await req.payload.find({
+              collection: 'supplier-purchase-orders',
+              where: { sourceOrderId: { equals: doc.sourceOrderId } },
+              limit: 100,
+            })
+            const allFulfilled = siblingPOs.docs.every((po: any) => po.status === 'fulfilled')
+
+            if (allFulfilled) {
+              const order: any = await req.payload.findByID({
+                collection: 'orders',
+                id: doc.sourceOrderId,
+              })
+              await req.payload.create({
+                collection: 'notifications' as any,
+                data: {
+                  message: `Order ${order?.orderNumber || ''} (${order?.customerName || 'a customer'}) is fully fulfilled -- all supplier POs complete.`,
+                  link: `/admin-dashboard/orders?id=${doc.sourceOrderId}`,
+                  audienceRoles: ['admin'],
+                  read: false,
+                },
+              })
+            }
+          } catch (err) {
+            console.error('Failed to notify of order fulfillment:', err)
+          }
+        }
+        return doc
+      },
+    ],
+  },
+  fields: [
+    { name: 'poNumber', type: 'text', unique: true, admin: { description: 'Auto-generated on create (SPO-YYYY-####). Editable to override.' } },
+    { name: 'poDate', type: 'date', required: true, defaultValue: () => new Date().toISOString() },
+    { name: 'project', type: 'text', label: 'Project Name / Site' },
+    { name: 'deliveryDate', type: 'text', label: 'Delivery / Service Date' },
+    { name: 'supplierName', type: 'text' },
+    { name: 'supplierCompany', type: 'text', label: 'Supplier Company' },
+    { name: 'supplierAddress', type: 'textarea' },
+    { name: 'supplierPhone', type: 'text', label: 'Supplier Phone' },
+    { name: 'sourceOrderId', type: 'text', admin: { readOnly: true, description: 'Internal: links back to the Order this PO was created from, if any. An order can have multiple POs.' } },
+    { name: 'preparedBy', type: 'text', label: 'Prepared By (Name)' },
+    { name: 'preparedByRole', type: 'text', label: 'Prepared By (Role)', defaultValue: 'Sales Rep.' },
+    {
+      name: 'items',
+      type: 'array',
+      label: 'Line Items',
+      fields: [
+        { name: 'description', type: 'text', required: true },
+        { name: 'sizeDescription', type: 'text', label: 'Size / Specs (Optional)' },
+        { name: 'qty', type: 'number', required: true, defaultValue: 1 },
+        { name: 'unit', type: 'text', defaultValue: 'pcs', label: 'Unit' },
+        { name: 'unitPrice', type: 'number', required: true, defaultValue: 0 },
+      ],
+    },
+    { name: 'vatRate', type: 'number', defaultValue: 12, label: 'VAT Rate (%)' },
+    { name: 'paymentTerms', type: 'text', defaultValue: 'Net 30' },
+    {
+      name: 'terms',
+      type: 'group',
+      label: 'Terms & Conditions',
+      fields: [
+        { name: 'delivery', type: 'textarea', label: 'Delivery / Site Access Instructions' },
+        { name: 'warranty', type: 'textarea', label: 'Warranty / Quality Standards' },
+        { name: 'rejection', type: 'textarea', label: 'Rejection Clause' },
+        { name: 'compliance', type: 'textarea', label: 'Compliance' },
+      ],
+    },
+    {
+      name: 'status',
+      type: 'select',
+      options: [
+        { label: 'Draft', value: 'draft' },
+        { label: 'Issued', value: 'issued' },
+        { label: 'Fulfilled', value: 'fulfilled' },
+        { label: 'Cancelled', value: 'cancelled' },
+      ],
+      defaultValue: 'draft',
+    },
+  ],
+}

@@ -1,0 +1,298 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import Image from "next/image";
+
+const NAV_LINKS = [
+  { href: "/products", label: "Products", hasDropdown: false },
+  { href: "/deliveries", label: "Delivered", hasDropdown: false },
+  { href: "/calculator", label: "Calculator", hasDropdown: false },
+  { href: "/about", label: "About", hasDropdown: false },
+];
+
+export default function SiteHeader() {
+  const [open, setOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const [bgOpacity, setBgOpacity] = useState(0.95);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    setIsMounted(true);
+    if (open) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "unset";
+
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [open]);
+
+  // Scroll listener to dynamically calculate background opacity
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollY = window.scrollY;
+      const startFade = 50;  // Begin fading after 50px of scroll
+      const endFade = 400;   // Fully transparent at 400px of scroll
+      
+      if (scrollY <= startFade) {
+        setBgOpacity(0.95);
+      } else if (scrollY >= endFade) {
+        setBgOpacity(0);
+      } else {
+        const progress = (scrollY - startFade) / (endFade - startFade);
+        setBgOpacity(0.95 - (progress * 0.95));
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll(); // Init on mount
+    
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  return (
+    <>
+      {/* Main Header - Sleek Dark Theme */}
+      <header
+        style={{ backgroundColor: `rgba(1, 23, 47, ${bgOpacity})` }}
+        className={`fixed top-0 left-0 right-0 w-full z-[65] backdrop-blur-xl border-b border-[#fdfffc]/5 transition-[transform,opacity] duration-1000 ease-out
+          ${isMounted ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4"}
+        `}
+      >
+        <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-12 h-[60px] sm:h-[68px] md:h-20 flex items-center justify-between">
+          
+          {/* 1. Logo & Brand Identity */}
+          <Link
+            href="/"
+            className="group flex items-center gap-2 sm:gap-2.5 z-[60] outline-none shrink-0"
+            onClick={() => setOpen(false)}
+          >
+            <div className="relative w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-lg p-1 transition-transform duration-500 group-hover:scale-105">
+              <Image
+                src="/branding/constructx_logo.png"
+                alt="ConstructX Logo"
+                fill
+                sizes="44px"
+                className="object-cover"
+              />
+            </div>
+
+            <div className="flex flex-col justify-center">
+              <span
+  className="font-serif text-[14px] sm:text-[15px] md:text-[19px] font-light tracking-tight text-[#fdfffc] drop-shadow-md leading-none transition-colors duration-300 group-hover:text-[#1877F2]"
+>
+  CONSTRUCTX
+</span>
+              <span className="text-[5px] sm:text-[6px] md:text-[7px] font-bold uppercase tracking-[0.22em] text-[#1877F2] drop-shadow-sm">
+                Trading Corporation
+              </span>
+            </div>
+          </Link>
+
+          {/* 2. Center Navigation - Segmented Pill */}
+          <nav className="hidden lg:flex items-center rounded-xl border border-[#fdfffc]/15 bg-[#fdfffc]/5">
+            {NAV_LINKS.map((link, idx) => {
+              const isActive = pathname === link.href;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`flex items-center gap-1.5 px-5 py-2 text-[8px] font-medium transition-colors outline-none
+                    ${isActive ? "text-[#fdfffc]" : "text-[#fdfffc]/70 hover:text-[#fdfffc]"}
+                    ${idx !== NAV_LINKS.length - 1 ? "border-r border-[#fdfffc]/15" : ""}
+                  `}
+                >
+                  {link.label}
+                  {link.hasDropdown && (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-70 mt-0.5">
+                      <path d="M6 9l6 6 6-6" />
+                    </svg>
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* 3. Right Utilities & CTA */}
+          <div className="hidden lg:flex items-center shrink-0">
+            
+            {/* Sleek Inline Contact Info */}
+            <div className="flex flex-col items-end mr-5 pr-5 border-r border-[#fdfffc]/15">
+              <div className="flex items-center gap-2.5 text-[10px] font-medium tracking-wider text-[#fdfffc]/90 mb-0.5">
+                <a href="tel:09170000000" className="hover:text-[#1877F2] transition-colors">0917-000-0000</a>
+                <span className="w-1 h-1 rounded-full bg-[#fdfffc]/20" />
+                <a href="tel:09170000001" className="hover:text-[#1877F2] transition-colors">0917-000-0001</a>
+              </div>
+              <a href="mailto:sales@constructx.demo" className="text-[9px] font-medium tracking-widest text-[#fdfffc]/50 hover:text-[#fdfffc] transition-colors">
+                sales@constructx.demo
+              </a>
+            </div>
+
+            {/* Vibrant CTA Button */}
+            <Link
+              href="/quote"
+              className="px-5 py-2 bg-[#1877F2] text-white text-[10px] font-semibold rounded-lg hover:bg-[#107e0e] transition-colors shadow-[0_4px_14px_rgba(20,153,17,0.25)] outline-none"
+            >
+              Request a quote
+            </Link>
+          </div>
+
+          {/* Mobile Menu Toggle (Hamburger) */}
+          <button
+            className="flex lg:hidden flex-col justify-center items-end z-[70] ml-auto shrink-0 outline-none cursor-pointer py-2 pl-4"
+            onClick={() => setOpen(!open)}
+            aria-label="Toggle menu"
+            style={{ gap: "5px" }}
+          >
+            <div
+              className={`transition-transform duration-300 ease-in-out origin-center ${
+                open ? "rotate-45 translate-y-[3.5px]" : ""
+              }`}
+              style={{
+                width: "24px",
+                height: "2px",
+                backgroundColor: "#ffffff",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.4)",
+              }}
+            />
+            <div
+              className={`transition-all duration-300 ease-in-out origin-center ${
+                open ? "-rotate-45 -translate-y-[3.5px]" : ""
+              }`}
+              style={{
+                width: open ? "24px" : "16px",
+                height: "2px",
+                backgroundColor: "#ffffff",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.4)",
+              }}
+            />
+          </button>
+        </div>
+      </header>
+
+      {/* Mobile Fullscreen Menu */}
+      <div
+        className={`fixed inset-0 z-[55] bg-[#050505]/98 backdrop-blur-xl flex flex-col justify-center transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]
+          ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}
+        `}
+      >
+        <nav className="flex flex-col px-6 sm:px-10 gap-5 sm:gap-7 max-w-sm mx-auto w-full">
+          {NAV_LINKS.map((link, i) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`text-[22px] sm:text-[24px] font-light tracking-wide text-[#fdfffc] transition-all duration-700
+                ${open ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}
+              `}
+              style={{ transitionDelay: `${open ? i * 100 + 200 : 0}ms` }}
+              onClick={() => setOpen(false)}
+            >
+              {link.label}
+            </Link>
+          ))}
+
+          <Link
+            href="/quote"
+            className={`mt-2 py-3 sm:py-4 border-t border-[#fdfffc]/10 text-[12px] sm:text-[14px] uppercase tracking-[0.2em] font-medium text-[#1877F2] flex items-center justify-between group transition-all duration-700
+              ${open ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}
+            `}
+            style={{
+              transitionDelay: `${open ? NAV_LINKS.length * 100 + 150 : 0}ms`,
+            }}
+            onClick={() => setOpen(false)}
+          >
+            Request a Quote
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="transition-transform duration-500 group-hover:translate-x-2"
+            >
+              <path d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+          </Link>
+        </nav>
+      </div>
+
+      {/* Mobile Floating Contact (Sleek FAB - Updated to Dark Theme) */}
+      <div className="lg:hidden fixed bottom-4 sm:bottom-6 right-4 sm:right-6 z-[60] flex flex-col items-end pointer-events-none">
+        <div
+          className={`mb-3 sm:mb-4 p-5 sm:p-6 bg-[#050505] backdrop-blur-xl border border-white/10 shadow-2xl rounded-xl w-[240px] sm:w-[260px] origin-bottom-right transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]
+            ${contactOpen ? "opacity-100 scale-100 pointer-events-auto" : "opacity-0 scale-95 pointer-events-none"}
+          `}
+        >
+          <div className="flex flex-col gap-4 sm:gap-5">
+            <div>
+              <span className="block text-[8px] uppercase tracking-[0.25em] text-white/40 mb-2.5 sm:mb-3 font-medium">
+                Direct Lines
+              </span>
+              <div className="flex flex-col gap-2.5 sm:gap-3">
+                <a
+                  href="tel:09170000000"
+                  className="text-[13px] sm:text-[14px] tracking-widest text-white active:text-[#1877F2] transition-colors"
+                >
+                  0917-000-0000
+                </a>
+                <a
+                  href="tel:09170000001"
+                  className="text-[13px] sm:text-[14px] tracking-widest text-white active:text-[#1877F2] transition-colors"
+                >
+                  0917-000-0001
+                </a>
+              </div>
+            </div>
+            <div className="pt-4 sm:pt-5 border-t border-white/10">
+              <span className="block text-[8px] uppercase tracking-[0.25em] text-white/40 mb-2.5 sm:mb-3 font-medium">
+                Email
+              </span>
+              <a
+                href="mailto:sales@constructx.demo"
+                className="text-[10px] sm:text-[11px] tracking-wide text-white active:text-[#1877F2] transition-colors break-all"
+              >
+                sales@constructx.demo
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setContactOpen(!contactOpen)}
+          className={`pointer-events-auto w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center shadow-lg transition-all duration-500 ease-out active:scale-95
+            ${contactOpen ? "bg-[#1877F2] text-white border border-[#1877F2]" : "bg-[#050505] text-white active:bg-[#1877F2]"}
+          `}
+          aria-label="Contact options"
+        >
+          <div className="relative w-5 h-5">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              className={`absolute inset-0 transition-all duration-500
+                ${contactOpen ? "opacity-0 rotate-90 scale-50" : "opacity-100 rotate-0 scale-100"}
+              `}
+            >
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+            </svg>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              className={`absolute inset-0 transition-all duration-500
+                ${contactOpen ? "opacity-100 rotate-0 scale-100" : "opacity-0 -rotate-90 scale-50"}
+              `}
+            >
+              <path d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+        </button>
+      </div>
+    </>
+  );
+}

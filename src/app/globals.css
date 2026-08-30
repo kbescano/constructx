@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+
+@layer base {
+  html,
+  body {
+    @apply m-0 p-0 bg-white text-black font-sans;
+    line-height: 1.55;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-bold text-black m-0;
+    letter-spacing: -0.01em;
+  }
+
+  h1 {
+    font-size: clamp(38px, 6vw, 64px);
+    line-height: 1.05;
+  }
+
+  h2 {
+    font-size: clamp(28px, 4vw, 38px);
+  }
+
+  a {
+    color: inherit;
+  }
+
+  p {
+    @apply text-base text-gray-600;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid #1877F2;
+  outline-offset: 2px;
+}
+
+/* Used by OnboardingTip (src/components/onboarding/OnboardingTip.tsx) */
+@keyframes onboardingTipIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
