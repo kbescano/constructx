@@ -1,3 +1,6 @@
+// Unlike `npm run dev`, a plain script run doesn't go through Next.js's own
+// .env loading -- load it explicitly, before anything reads process.env.
+import 'dotenv/config'
 import { getPayload } from 'payload'
 import config from './src/payload.config'
 

@@ -11,6 +11,9 @@
  * Run with: npx tsx scripts/seed.ts
  * (or: npm install -D tsx first, if not already present)
  */
+// Unlike `npm run dev`, a plain script run doesn't go through Next.js's own
+// .env loading -- load it explicitly, before anything reads process.env.
+import 'dotenv/config'
 import { getPayload, type Payload } from 'payload'
 import config from '../src/payload.config'
 
