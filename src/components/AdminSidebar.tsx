@@ -144,11 +144,6 @@ export default function AdminLayout({
           <div className="flex items-center justify-between px-4 sm:px-6 md:px-10 h-11">
             <span className="flex items-center gap-2 text-[12px] font-bold text-[#050505]/60 truncate">
               Signed in as {displayName}
-              {user.role && (
-                <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 bg-[#1877F2]/10 text-[#0A4FB0] flex-shrink-0">
-                  {user.role}
-                </span>
-              )}
             </span>
             <span className="flex items-center gap-4 flex-shrink-0">
               {/* Two ways to see tips: hover anything directly, or click
