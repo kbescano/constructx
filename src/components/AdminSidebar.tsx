@@ -160,7 +160,7 @@ export default function AdminLayout({
               <button
                 type="button"
                 onClick={() => startTipsTour()}
-                className="hidden sm:flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.1em] text-[#1877F2] hover:text-[#0A4FB0] transition-colors"
+                className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.1em] text-[#1877F2] hover:text-[#0A4FB0] transition-colors"
                 title="Walk through every tip on this page, one at a time"
               >
                 <span className="relative flex h-1.5 w-1.5">
