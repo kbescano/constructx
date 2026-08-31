@@ -176,18 +176,11 @@ function RequestCardBody({
   isAdmin,
   staffOptions,
   currentUserName,
-  showControlTips = false,
 }: {
   q: any
   isAdmin: boolean
   staffOptions: StaffOption[]
   currentUserName: string
-  /** Show onboarding tips on this card's controls (Status, Assign Staff,
-   * View Order Workflow). Only pass true for a single, deliberately-shown
-   * instance (the open-request modal, or the first card in a list) --
-   * every card in a list sharing the same instance would stack duplicate
-   * bubbles down the page. */
-  showControlTips?: boolean
 }) {
   return (
     <>
@@ -207,29 +200,17 @@ function RequestCardBody({
         <div className="w-auto shrink-0" onClick={(e) => e.stopPropagation()}>
           <div className="flex flex-wrap items-center gap-1.5">
             {isAdmin && (
-              <AssignStaffSelect
-                requestId={q.id}
-                currentAssignedTo={assignedToId(q.assignedTo)}
-                staffOptions={staffOptions}
-              />
-            )}
-            {showControlTips ? (
-              // A single tip covering both controls in this cluster (rather
-              // than one per control) -- Assign Staff and Status sit right
-              // next to each other, so two separate bubbles here would
-              // overlap each other no matter which side they open on.
-              <OnboardingTip
-                id="inbox-status-select"
-                text={isAdmin
-                  ? "Assign staff and change status here as you work the request — status moves it through Pending → Processing → Quote Sent, etc."
-                  : "Change the status here as you work the request — moves it through Pending → Processing → Quote Sent, etc."}
-                side="left"
-              >
-                <StatusSelect id={q.id} status={q.status} />
+              <OnboardingTip id="inbox-assign-staff" text="Assign this request to a sales rep — they'll own following up on it." side="left">
+                <AssignStaffSelect
+                  requestId={q.id}
+                  currentAssignedTo={assignedToId(q.assignedTo)}
+                  staffOptions={staffOptions}
+                />
               </OnboardingTip>
-            ) : (
-              <StatusSelect id={q.id} status={q.status} />
             )}
+            <OnboardingTip id="inbox-status-select" text="Change the status here as you work the request — moves it through Pending → Processing → Quote Sent, etc." side="left">
+              <StatusSelect id={q.id} status={q.status} />
+            </OnboardingTip>
           </div>
         </div>
       </div>
@@ -252,17 +233,7 @@ function RequestCardBody({
         <span className="text-gray-500">
           Stage: <span className="text-emerald-600 font-medium">{q.stageLabel}</span>
         </span>
-        {showControlTips ? (
-          <OnboardingTip id="inbox-view-workflow" text="Opens the full 6-step pipeline for this request — create a quotation, get it approved, assign suppliers, and track delivery through to close." side="bottom">
-            <Link
-              href={`/admin-dashboard/pipeline/${q.id}`}
-              onClick={(e) => e.stopPropagation()}
-              className="text-[10px] font-medium text-gray-500 hover:text-[#050505] transition-colors"
-            >
-              View Order Workflow →
-            </Link>
-          </OnboardingTip>
-        ) : (
+        <OnboardingTip id="inbox-view-workflow" text="Opens the full 6-step pipeline for this request — create a quotation, get it approved, assign suppliers, and track delivery through to close." side="bottom">
           <Link
             href={`/admin-dashboard/pipeline/${q.id}`}
             onClick={(e) => e.stopPropagation()}
@@ -270,7 +241,7 @@ function RequestCardBody({
           >
             View Order Workflow →
           </Link>
-        )}
+        </OnboardingTip>
       </div>
 
       {/* Items & Message Grid */}
@@ -534,49 +505,53 @@ export default function QuotationInboxClient({
 
       {/* Filter Section */}
       <div className="mb-5 flex flex-wrap items-center gap-x-6 gap-y-3 pb-4 border-b border-gray-100">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 shrink-0">Status</span>
-          <div className="flex flex-wrap gap-1">
-            {filterPills.map((pill) => {
-              const isActive = (activeStatus || '') === pill.value
-              return (
-                <button
-                  key={pill.value || 'all'}
-                  type="button"
-                  onClick={() => handleStatusClick(pill.value)}
-                  className={`text-[10px] font-medium px-2.5 py-1 rounded-full transition-colors ${
-                    isActive
-                      ? 'bg-[#050505] text-white'
-                      : 'text-gray-500 hover:bg-gray-100'
-                  }`}
-                >
-                  {pill.label}
-                </button>
-              )
-            })}
+        <OnboardingTip id="inbox-filter-status" text="Filter the list to one status — click again (or 'All') to clear it." side="bottom">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 shrink-0">Status</span>
+            <div className="flex flex-wrap gap-1">
+              {filterPills.map((pill) => {
+                const isActive = (activeStatus || '') === pill.value
+                return (
+                  <button
+                    key={pill.value || 'all'}
+                    type="button"
+                    onClick={() => handleStatusClick(pill.value)}
+                    className={`text-[10px] font-medium px-2.5 py-1 rounded-full transition-colors ${
+                      isActive
+                        ? 'bg-[#050505] text-white'
+                        : 'text-gray-500 hover:bg-gray-100'
+                    }`}
+                  >
+                    {pill.label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
-        </div>
+        </OnboardingTip>
 
         {isAdmin && staffOptions.length > 0 && (
           <>
             <div className="hidden sm:block w-px h-4 bg-gray-200" />
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 shrink-0">
-                Staff
-              </span>
-              <select
-                value={activeStaff || ''}
-                onChange={(e) => handleStaffChange(e.target.value)}
-                className="text-[12px] font-medium text-gray-700 bg-transparent border-0 border-b border-gray-200 pb-0.5 pr-5 focus:outline-none focus:border-[#1877F2] cursor-pointer appearance-none"
-              >
-                <option value="">All Staff</option>
-                {staffOptions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name || s.email}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <OnboardingTip id="inbox-filter-staff" text="See only one rep's requests — useful for checking a specific person's workload." side="bottom">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 shrink-0">
+                  Staff
+                </span>
+                <select
+                  value={activeStaff || ''}
+                  onChange={(e) => handleStaffChange(e.target.value)}
+                  className="text-[12px] font-medium text-gray-700 bg-transparent border-0 border-b border-gray-200 pb-0.5 pr-5 focus:outline-none focus:border-[#1877F2] cursor-pointer appearance-none"
+                >
+                  <option value="">All Staff</option>
+                  {staffOptions.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name || s.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </OnboardingTip>
           </>
         )}
 
@@ -620,7 +595,6 @@ export default function QuotationInboxClient({
                   isAdmin={isAdmin}
                   staffOptions={staffOptions}
                   currentUserName={currentUserName}
-                  showControlTips={index === 0}
                 />
               </div>
             )
@@ -663,7 +637,6 @@ export default function QuotationInboxClient({
               isAdmin={isAdmin}
               staffOptions={staffOptions}
               currentUserName={currentUserName}
-              showControlTips
             />
           </div>
         </div>

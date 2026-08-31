@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import NotificationBell from '@/components/NotificationBell'
-import OnboardingTip, { resetOnboardingTips } from '@/components/onboarding/OnboardingTip'
+import OnboardingTip, { startTipsTour } from '@/components/onboarding/OnboardingTip'
 
 // Updated to use a 'roles' array for granular access control
 const NAV_ITEMS = [
@@ -20,11 +20,18 @@ const NAV_ITEMS = [
   { href: '/admin-dashboard/reports', label: 'Reports', roles: ['admin'] },
 ]
 
-// First-visit hints shown next to the nav link that leads there. Keyed by
-// href so they only render for items actually in NAV_ITEMS above.
+// Hover hints for every nav tab. Keyed by href so they only render for
+// items actually in NAV_ITEMS above.
 const NAV_TIPS: Record<string, string> = {
   '/admin-dashboard': 'Start here — every inquiry lands in this inbox first.',
   '/admin-dashboard/sales-report': 'Your own performance: quotas, conversions, and order breakdowns.',
+  '/admin-dashboard/inquiry-tracker': 'Every rep\'s inquiries in one workload view — filter by staff or status.',
+  '/admin-dashboard/deliveries': 'Route plans and waybills for confirmed orders — pickup, drop-off, driver.',
+  '/admin-dashboard/clients': 'The client directory — company, contact info, and status.',
+  '/admin-dashboard/suppliers': 'The supplier directory — who you buy from, and their contact info.',
+  '/admin-dashboard/client-quotation': 'Every quotation sent to a client, from draft through order-confirmed.',
+  '/admin-dashboard/orders': 'Confirmed orders — fulfillment, payment, and profit per order.',
+  '/admin-dashboard/supplier-po': 'Purchase orders issued to suppliers, and their fulfillment status.',
   '/admin-dashboard/reports': 'Company-wide revenue, profit, and staff performance.',
 }
 
@@ -39,7 +46,6 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
-  const [tipsResetJustNow, setTipsResetJustNow] = useState(false)
 
   const displayName = user?.name?.trim() || user?.email
   const isAdmin = user?.role === 'admin'
@@ -145,16 +151,23 @@ export default function AdminLayout({
               )}
             </span>
             <span className="flex items-center gap-4 flex-shrink-0">
+              {/* Two ways to see tips: hover anything directly, or click
+                  this to walk every tip on the page top-to-bottom, one at
+                  a time -- useful on touch devices, where hover doesn't
+                  exist, and for anyone who'd rather not go hunting for
+                  what's hoverable. The pulse is what makes the entry point
+                  itself noticeable. */}
               <button
-                onClick={() => {
-                  resetOnboardingTips()
-                  setTipsResetJustNow(true)
-                  setTimeout(() => setTipsResetJustNow(false), 2000)
-                }}
-                className="hidden sm:block text-[11px] font-bold uppercase tracking-[0.1em] text-[#050505]/40 hover:text-[#1877F2] transition-colors"
-                title="Bring back the dismissed onboarding tips"
+                type="button"
+                onClick={() => startTipsTour()}
+                className="hidden sm:flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.1em] text-[#1877F2] hover:text-[#0A4FB0] transition-colors"
+                title="Walk through every tip on this page, one at a time"
               >
-                {tipsResetJustNow ? 'Tips reset ✓' : 'Show tips'}
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#1877F2] opacity-75" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#1877F2]" />
+                </span>
+                Show tips
               </button>
               <button
                 onClick={handleLogout}

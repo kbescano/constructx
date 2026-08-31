@@ -55,11 +55,9 @@ function matchesSearch(q: any, needle: string): boolean {
 function QuotationCardBody({
   q,
   existingOrderId,
-  showControlTips = false,
 }: {
   q: any
   existingOrderId?: string
-  showControlTips?: boolean
 }) {
   const supplierCostTotal = (q.items || []).reduce((sum: number, i: any) => sum + (i.qty || 0) * (i.unitCost || 0), 0)
   const markupTotal = (q.items || []).reduce((sum: number, i: any) => sum + (i.qty || 0) * (i.marginAmount || 0), 0)
@@ -90,17 +88,7 @@ function QuotationCardBody({
         </div>
 
         <div className="w-full sm:w-auto" onClick={(e) => e.stopPropagation()}>
-          {showControlTips ? (
-            <OnboardingTip id="quotations-status-select" text="Move this through Draft → Pending Approval → Approved → Order Confirmed as it progresses.">
-              <CollectionStatusSelect
-                collection="client-quotations"
-                id={q.id}
-                status={q.status}
-                options={STATUS_OPTIONS}
-                colorClassMap={STATUS_COLORS}
-              />
-            </OnboardingTip>
-          ) : (
+          <OnboardingTip id="quotations-status-select" text="Move this through Draft → Pending Approval → Approved → Order Confirmed as it progresses.">
             <CollectionStatusSelect
               collection="client-quotations"
               id={q.id}
@@ -108,7 +96,7 @@ function QuotationCardBody({
               options={STATUS_OPTIONS}
               colorClassMap={STATUS_COLORS}
             />
-          )}
+          </OnboardingTip>
         </div>
       </div>
 
@@ -211,42 +199,24 @@ function QuotationCardBody({
 
       {/* Bottom Action Footer */}
       <div className="mt-5 pt-3 border-t border-gray-50 flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
-        {showControlTips ? (
-          <OnboardingTip id="quotations-view-editor" text="Opens the full quotation editor — edit line items and pricing, or print/export the client-ready document.">
-            <Link
-              href={`/admin-dashboard/client-quotation?id=${q.id}`}
-              className="text-[9px] font-bold uppercase tracking-wider text-blue-600 hover:text-blue-800 transition-colors"
-            >
-              View Quotation &rarr;
-            </Link>
-          </OnboardingTip>
-        ) : (
+        <OnboardingTip id="quotations-view-editor" text="Opens the full quotation editor — edit line items and pricing, or print/export the client-ready document.">
           <Link
             href={`/admin-dashboard/client-quotation?id=${q.id}`}
             className="text-[9px] font-bold uppercase tracking-wider text-blue-600 hover:text-blue-800 transition-colors"
           >
             View Quotation &rarr;
           </Link>
-        )}
+        </OnboardingTip>
 
         {existingOrderId && (
-          showControlTips ? (
-            <OnboardingTip id="quotations-view-order" text="Once a quotation converts to an order, jump straight to its fulfillment tracking here." side="left">
-              <Link
-                href={`/admin-dashboard/orders?id=${existingOrderId}`}
-                className="text-[9px] font-bold uppercase tracking-wider px-3 py-1 bg-[#050505] text-white rounded hover:bg-[#1877F2] transition-colors"
-              >
-                View Converted Order &rarr;
-              </Link>
-            </OnboardingTip>
-          ) : (
+          <OnboardingTip id="quotations-view-order" text="Once a quotation converts to an order, jump straight to its fulfillment tracking here." side="left">
             <Link
               href={`/admin-dashboard/orders?id=${existingOrderId}`}
               className="text-[9px] font-bold uppercase tracking-wider px-3 py-1 bg-[#050505] text-white rounded hover:bg-[#1877F2] transition-colors"
             >
               View Converted Order &rarr;
             </Link>
-          )
+          </OnboardingTip>
         )}
       </div>
     </>
@@ -368,23 +338,25 @@ export default function ClientQuotationsListClient({
         )}
       </div>
 
-      <div className="flex flex-wrap gap-1.5 mb-6">
-        {filterPills.map((pill) => {
-          const isActive = (activeStatus || '') === pill.value
-          return (
-            <button
-              key={pill.value || 'all'}
-              type="button"
-              onClick={() => handleStatusClick(pill.value)}
-              className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded transition-all ${
-                isActive ? 'bg-[#050505] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {pill.label}
-            </button>
-          )
-        })}
-      </div>
+      <OnboardingTip id="quotations-filter-status" text="Filter the list to one status — click again (or 'All') to clear it." side="bottom">
+        <div className="flex flex-wrap gap-1.5 mb-6">
+          {filterPills.map((pill) => {
+            const isActive = (activeStatus || '') === pill.value
+            return (
+              <button
+                key={pill.value || 'all'}
+                type="button"
+                onClick={() => handleStatusClick(pill.value)}
+                className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded transition-all ${
+                  isActive ? 'bg-[#050505] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {pill.label}
+              </button>
+            )
+          })}
+        </div>
+      </OnboardingTip>
 
       {filtered.length === 0 ? (
         <div className="border border-dashed border-gray-200 py-12 text-center rounded">
@@ -396,13 +368,13 @@ export default function ClientQuotationsListClient({
         </div>
       ) : (
         <div className="flex flex-col gap-5">
-          {filtered.map((q: any, index: number) => (
+          {filtered.map((q: any) => (
             <div
               key={q.id}
               onClick={() => openView(q.id)}
               className="bg-white border border-gray-200 rounded p-4 sm:p-5 transition-all hover:border-gray-300 hover:shadow-sm cursor-pointer"
             >
-              <QuotationCardBody q={q} existingOrderId={orderIdByQuotationId[String(q.id)]} showControlTips={index === 0} />
+              <QuotationCardBody q={q} existingOrderId={orderIdByQuotationId[String(q.id)]} />
             </div>
           ))}
         </div>
@@ -427,7 +399,7 @@ export default function ClientQuotationsListClient({
                 ✕
               </button>
             </div>
-            <QuotationCardBody q={openQuotation} existingOrderId={orderIdByQuotationId[String(openQuotation.id)]} showControlTips />
+            <QuotationCardBody q={openQuotation} existingOrderId={orderIdByQuotationId[String(openQuotation.id)]} />
           </div>
         </div>
       )}

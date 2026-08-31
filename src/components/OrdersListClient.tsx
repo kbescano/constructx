@@ -148,7 +148,7 @@ function MinimalStepper({ status }: { status: string }) {
 // Shared between the list card and the detail modal. "View Source
 // Quotation" still goes to the Client Quotation page's ?id= (its full
 // editor mode, unrelated to that page's own ?view= modal param).
-function OrderCardBody({ o, orderPOs, showControlTips = false }: { o: any; orderPOs: any[]; showControlTips?: boolean }) {
+function OrderCardBody({ o, orderPOs }: { o: any; orderPOs: any[] }) {
   const total = orderTotal(o)
   const orderItems = o.items || []
 
@@ -429,23 +429,14 @@ function OrderCardBody({ o, orderPOs, showControlTips = false }: { o: any; order
       {/* Subtle Link footer */}
       {o.sourceQuotationId && (
         <div className="mt-5 pt-3 flex justify-end" onClick={(e) => e.stopPropagation()}>
-          {showControlTips ? (
-            <OnboardingTip id="orders-view-source-quotation" text="Jumps back to the priced quotation this order was converted from." side="left">
-              <Link
-                href={`/admin-dashboard/client-quotation?id=${o.sourceQuotationId}`}
-                className="text-[9px] font-bold uppercase tracking-wider text-blue-600 hover:text-blue-800 transition-colors"
-              >
-                View Source Quotation &rarr;
-              </Link>
-            </OnboardingTip>
-          ) : (
+          <OnboardingTip id="orders-view-source-quotation" text="Jumps back to the priced quotation this order was converted from." side="left">
             <Link
               href={`/admin-dashboard/client-quotation?id=${o.sourceQuotationId}`}
               className="text-[9px] font-bold uppercase tracking-wider text-blue-600 hover:text-blue-800 transition-colors"
             >
               View Source Quotation &rarr;
             </Link>
-          )}
+          </OnboardingTip>
         </div>
       )}
     </>
@@ -569,23 +560,25 @@ export default function OrdersListClient({
         )}
       </div>
 
-      <div className="flex flex-wrap gap-1.5 mb-6">
-        {filterPills.map((pill) => {
-          const isActive = (activeStatus || '') === pill.value
-          return (
-            <button
-              key={pill.value || 'all'}
-              type="button"
-              onClick={() => handleStatusClick(pill.value)}
-              className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-md transition-all ${
-                isActive ? 'bg-[#050505] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {pill.label}
-            </button>
-          )
-        })}
-      </div>
+      <OnboardingTip id="orders-filter-status" text="Filter orders by fulfillment status — click again (or 'All Orders') to clear it." side="bottom">
+        <div className="flex flex-wrap gap-1.5 mb-6">
+          {filterPills.map((pill) => {
+            const isActive = (activeStatus || '') === pill.value
+            return (
+              <button
+                key={pill.value || 'all'}
+                type="button"
+                onClick={() => handleStatusClick(pill.value)}
+                className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-md transition-all ${
+                  isActive ? 'bg-[#050505] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {pill.label}
+              </button>
+            )
+          })}
+        </div>
+      </OnboardingTip>
 
       {filtered.length === 0 ? (
         <div className="border border-dashed border-gray-200 py-12 text-center rounded-xl">
@@ -597,7 +590,7 @@ export default function OrdersListClient({
         </div>
       ) : (
         <div className="flex flex-col gap-5">
-          {filtered.map((o: any, index: number) => {
+          {filtered.map((o: any) => {
             const isHighlighted = openId && String(o.id) === openId
             return (
               <div
@@ -607,7 +600,7 @@ export default function OrdersListClient({
                   isHighlighted ? 'border-[#1877F2] shadow-[0_8px_30px_-12px_rgba(20,153,17,0.25)]' : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
                 }`}
               >
-                <OrderCardBody o={o} orderPOs={posByOrderId[String(o.id)] || []} showControlTips={index === 0} />
+                <OrderCardBody o={o} orderPOs={posByOrderId[String(o.id)] || []} />
               </div>
             )
           })}
@@ -633,7 +626,7 @@ export default function OrdersListClient({
                 ✕
               </button>
             </div>
-            <OrderCardBody o={openOrderDoc} orderPOs={posByOrderId[String(openOrderDoc.id)] || []} showControlTips />
+            <OrderCardBody o={openOrderDoc} orderPOs={posByOrderId[String(openOrderDoc.id)] || []} />
           </div>
         </div>
       )}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import OnboardingTip from '@/components/onboarding/OnboardingTip'
 
 function getMonday(d: Date): Date {
   const day = d.getDay()
@@ -100,15 +101,17 @@ export default function DateGranularityFilter({
 
   return (
     <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-      <button
-        type="button"
-        onClick={navigateAllTime}
-        className={`text-[12px] font-medium bg-transparent border-0 border-b pb-0.5 transition-colors ${
-          isAllTime ? 'border-[#1877F2] text-gray-900' : 'border-transparent text-gray-400 hover:text-gray-600'
-        }`}
-      >
-        All Time
-      </button>
+      <OnboardingTip id="date-filter-all-time" text="Shows every record regardless of date — pick Day, Week, Month, or Year on the right to narrow it down.">
+        <button
+          type="button"
+          onClick={navigateAllTime}
+          className={`text-[12px] font-medium bg-transparent border-0 border-b pb-0.5 transition-colors ${
+            isAllTime ? 'border-[#1877F2] text-gray-900' : 'border-transparent text-gray-400 hover:text-gray-600'
+          }`}
+        >
+          All Time
+        </button>
+      </OnboardingTip>
 
       <div className="flex items-center gap-2">
         <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Day</span>

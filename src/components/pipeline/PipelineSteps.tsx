@@ -112,14 +112,16 @@ export function StepConfirmation({ quotation, isQuotationApprovedOrBeyond, handl
                 <p className="text-[12px] font-medium text-gray-900 leading-relaxed">
                   <strong className="text-[#1877F2] mr-1">Approved!</strong> The admin has accepted this quotation. You can now print the formal document and proceed to confirm the internal order.
                 </p>
-                <OnboardingTip id="pipeline-open-quotation-print" text="Opens the formal, client-ready quotation document — print it or save as PDF to send.">
-                  <Link
-                    href={`/admin-dashboard/client-quotation?id=${quotation.id}&pipelineId=${request.id}`}
-                    className="inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all text-[10px] font-medium w-full sm:w-auto mt-1 shadow-sm"
-                  >
-                    Open Quotation to Print &rarr;
-                  </Link>
-                </OnboardingTip>
+                {/* No tip here -- its own label is self-explanatory, and the
+                    "Next Step" button below sits close enough vertically
+                    that two independent tips ended up stacking on top of
+                    each other. */}
+                <Link
+                  href={`/admin-dashboard/client-quotation?id=${quotation.id}&pipelineId=${request.id}`}
+                  className="inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all text-[10px] font-medium w-full sm:w-auto mt-1 shadow-sm"
+                >
+                  Open Quotation to Print &rarr;
+                </Link>
               </div>
             ) : (
               <div className="flex flex-col items-start gap-3.5">
